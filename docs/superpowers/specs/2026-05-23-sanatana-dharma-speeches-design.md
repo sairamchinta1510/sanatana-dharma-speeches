@@ -124,6 +124,7 @@ A public community website for devotees to search and explore Sanatan Dharma spe
   - `ArchiveService` — wraps archive.org Metadata API for audio files using LLM-generated terms
   - `ScraperService` — BeautifulSoup scraper for known Telugu Dharma sites (chaganti.net, etc.)
   - `CacheService` — SQLite-backed cache with 24-hour TTL; cache key is the LLM-parsed structured query (not raw text), so "Siva Tatvam" and "శివ తత్వం" hit the same cache entry
+  - `CostTrackingService` — tracks daily Bedrock spend in SQLite, enforces $1/day cap, triggers keyword fallback
 
 ### 3.3 Database (SQLite)
 - Three tables: `video_cache`, `audio_cache`, `vyakhanam_cache`
@@ -259,7 +260,39 @@ SanatanaDharmaSpeeches/
 
 ---
 
-## 8. Error Handling
+## 8. Cost Controls
+
+### Daily LLM Budget: $1.00 USD/day
+
+A `CostTrackingService` runs in the backend to enforce the daily Bedrock budget.
+
+**How it works:**
+- Every Bedrock API call records estimated token cost in SQLite (`llm_cost_log` table: `date`, `tokens_in`, `tokens_out`, `model`, `cost_usd`)
+- Before each LLM call, the service checks today's accumulated cost
+- If accumulated cost ≥ **$0.95** → serve a warning banner: *"Search accuracy reduced — daily budget nearly reached"*
+- If accumulated cost ≥ **$1.00** → **skip LLM entirely**, fall back to raw keyword search for the rest of the day
+- Counter resets at **midnight UTC** daily
+
+**Cost per search estimate:**
+
+| Step | Model | Avg tokens | Cost/search |
+|---|---|---|---|
+| parse_query | Llama 3.1 8B | ~300 in / 150 out | ~$0.00009 |
+| generate_search_terms | Llama 3.1 8B | ~400 in / 200 out | ~$0.00012 |
+| rank_results | Llama 3.1 8B | ~800 in / 100 out | ~$0.00018 |
+| highlight_vyakhanams | Claude Haiku | ~600 in / 200 out | ~$0.00035 |
+| **Total per search** | | | **~$0.00074** |
+
+At $0.00074/search and a $1/day cap → **~1,350 LLM-powered searches/day** before fallback. Well above expected community usage.
+
+**Fallback behaviour (budget exhausted):**
+- Search still works — uses raw user query string directly on YouTube API and archive.org
+- Vyakhanams still shown — returns cached results or raw scraped text without LLM highlighting
+- No error shown to user beyond a subtle notice: *"Enhanced search paused — results shown as-is"*
+
+---
+
+## 9. Error Handling
 
 - **LLM call fails (Bedrock timeout):** Fall back to raw keyword search using the original query text directly
 - **YouTube API quota exceeded:** Return cached results; show "Results may be limited" banner
@@ -269,7 +302,7 @@ SanatanaDharmaSpeeches/
 
 ---
 
-## 9. Out of Scope (v1)
+## 10. Out of Scope (v1)
 
 - User accounts / favorites / playlists
 - Admin panel for curating content

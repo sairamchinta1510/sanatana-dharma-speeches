@@ -28,12 +28,12 @@ def search(
 
     cached = cache_svc.get(type, q, lang)
     if cached is not None:
-        explanation_cache = cache_svc.get(f"{type}_explanation", q, lang)
-        exp = explanation_cache[0] if explanation_cache else None
+        parsed = llm_svc.parse_query(q, lang=lang)
+        explanation_data = llm_svc.explain_topic(parsed) if parsed else None
         return {
             "results": cached,
-            "explanation": exp.get("explanation") if exp else None,
-            "related_topics": exp.get("related_topics", []) if exp else [],
+            "explanation": explanation_data.get("explanation") if explanation_data else None,
+            "related_topics": explanation_data.get("related_topics", []) if explanation_data else [],
             "budget_warning": False,
             "from_cache": True,
         }
@@ -54,8 +54,6 @@ def search(
     explanation_data = llm_svc.explain_topic(parsed) if parsed else None
 
     cache_svc.set(type, q, lang, results)
-    if explanation_data:
-        cache_svc.set(f"{type}_explanation", q, lang, [explanation_data])
 
     return {
         "results": results,

@@ -47,7 +47,13 @@ def search(
     if type == "video":
         raw = yt_svc.search(terms, lang=lang)
     else:
-        raw = archive_svc.search(terms, lang=lang)
+        # Filter out pure non-ASCII terms (Telugu script won't match archive.org metadata)
+        ascii_terms = [t for t in terms if any(ord(c) < 128 and c.isalpha() for c in t)]
+        if not ascii_terms:
+            ascii_terms = [q]
+        raw = archive_svc.search(ascii_terms, lang=lang)
+        if not raw:  # fallback to original query if generated terms yield nothing
+            raw = archive_svc.search([q], lang=lang)
 
     results = llm_svc.rank_results(raw, parsed) if parsed else raw
 

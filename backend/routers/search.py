@@ -27,7 +27,7 @@ def search(
         raise HTTPException(status_code=400, detail="type must be 'video' or 'audio'")
 
     cached = cache_svc.get(type, q, lang)
-    if cached is not None:
+    if cached:  # only serve non-empty cached results
         parsed = llm_svc.parse_query(q, lang=lang)
         explanation_data = llm_svc.explain_topic(parsed) if parsed else None
         return {
@@ -53,7 +53,8 @@ def search(
 
     explanation_data = llm_svc.explain_topic(parsed) if parsed else None
 
-    cache_svc.set(type, q, lang, results)
+    if results:  # only cache non-empty results
+        cache_svc.set(type, q, lang, results)
 
     return {
         "results": results,

@@ -16,9 +16,25 @@ A public community website for devotees to search and explore Sanatan Dharma spe
 
 ## 2. Core Features
 
-### 2.1 Search
+### 2.1 LLM-Powered Search
 - Large Copilot-style search bar with placeholder: *"Ask anything — 'Siva Tatvam', 'Bhagavad Gita Chapter 2 Sloka 5', 'Karma Yoga'..."*
-- Supports natural language and specific queries (topic, scripture, chapter, sloka)
+- Supports natural language and highly specific queries (topic, scripture, chapter, sloka number)
+- Every search is processed by an LLM **before** hitting any external API:
+  1. **Query parsing** — LLM extracts structured intent from the raw query:
+     ```json
+     {
+       "topic": "Siva Tatvam",
+       "scripture": null,
+       "chapter": null,
+       "sloka": null,
+       "keywords": ["శివ తత్వం", "Shiva Tattva", "Shiva principle", "Siva philosophy"],
+       "language": "Telugu",
+       "search_intent": "conceptual discourse"
+     }
+     ```
+  2. **Search term generation** — LLM generates 3–5 optimized search query strings for YouTube and archive.org, covering Telugu transliterations, English equivalents, and alternate spellings
+  3. **Result ranking** — after fetching raw results, LLM scores each result (0–1) for relevance to the original query and re-orders the list
+  4. **Vyakhanams synthesis** — LLM reads scraped text excerpts and highlights the most relevant passages to the specific query
 - Quick-topic suggestion chips below search: Bhagavad Gita, Siva Tatvam, Upanishads, Ramayanam, Karma Yoga
 - Language filter pills: **Telugu (default)**, English, Sanskrit, Hindi
 
@@ -58,19 +74,27 @@ A public community website for devotees to search and explore Sanatan Dharma spe
 ┌────────────────▼────────────────────────┐
 │           FastAPI Backend               │
 │  /api/search  /api/vyakhanams           │
+│                                         │
+│  ┌──────────────────────────────────┐   │
+│  │      LLMService (Bedrock)        │   │
+│  │  parse_query()                   │   │
+│  │  generate_search_terms()         │   │
+│  │  rank_results()                  │   │
+│  │  highlight_vyakhanams()          │   │
+│  └──────────────────────────────────┘   │
 │  CacheService · YouTubeService          │
 │  ArchiveService · ScraperService        │
 └────────────────┬────────────────────────┘
                  │
-      ┌──────────┴──────────────┐
-      │                         │
-┌─────▼──────┐         ┌────────▼────────┐
-│  SQLite DB │         │  External APIs  │
-│  (cache)   │         │  YouTube API v3 │
-└────────────┘         │  archive.org    │
-                       │  chaganti.net   │
-                       │  (scraped)      │
-                       └─────────────────┘
+      ┌──────────┴──────────────────────┐
+      │                                 │
+┌─────▼──────┐    ┌──────────────────────▼──────┐
+│  SQLite DB │    │     External Services        │
+│  (cache)   │    │  Amazon Bedrock (LLM)        │
+└────────────┘    │  YouTube Data API v3         │
+                  │  archive.org Metadata API    │
+                  │  chaganti.net (scraped)      │
+                  └──────────────────────────────┘
 ```
 
 ### 3.1 Frontend (React + TypeScript)
@@ -95,28 +119,83 @@ A public community website for devotees to search and explore Sanatan Dharma spe
 | `GET /api/vyakhanams?q=&lang=` | Fetch Vyakhanams text results |
 
 - **Services:**
-  - `YouTubeService` — wraps YouTube Data API v3, filters by language/relevance
-  - `ArchiveService` — wraps archive.org Metadata API for audio files
+  - `LLMService` — wraps Amazon Bedrock; `llm_service.py`
+  - `YouTubeService` — wraps YouTube Data API v3 using LLM-generated search terms
+  - `ArchiveService` — wraps archive.org Metadata API for audio files using LLM-generated terms
   - `ScraperService` — BeautifulSoup scraper for known Telugu Dharma sites (chaganti.net, etc.)
-  - `CacheService` — SQLite-backed cache with 24-hour TTL
+  - `CacheService` — SQLite-backed cache with 24-hour TTL; cache key is the LLM-parsed structured query (not raw text), so "Siva Tatvam" and "శివ తత్వం" hit the same cache entry
 
 ### 3.3 Database (SQLite)
 - Three tables: `video_cache`, `audio_cache`, `vyakhanam_cache`
 - Each row: `query_key`, `lang`, `results_json`, `cached_at`
 - Cache invalidated after 24 hours
 
+## 4. LLM Search Flow (Amazon Bedrock)
+
+### Step-by-step for query: *"Bhagavad Gita Chapter 2 Sloka 5"*
+
+```
+User query
+    │
+    ▼
+LLMService.parse_query()
+    → { topic: "Bhagavad Gita", scripture: "Bhagavad Gita",
+        chapter: 2, sloka: 5, language: "Telugu",
+        keywords: ["భగవద్గీత 2వ అధ్యాయం 5వ శ్లోకం", "BG 2.5", ...] }
+    │
+    ▼
+LLMService.generate_search_terms()
+    → YouTube queries: ["Bhagavad Gita chapter 2 sloka 5 Telugu discourse",
+                        "భగవద్గీత 2వ అధ్యాయం 5వ శ్లోకం ప్రవచనం",
+                        "BG 2.5 Telugu pravachanam"]
+    → archive.org queries: ["bhagavad gita chapter 2 verse 5 telugu",
+                             "gita 2.5 telugu audio"]
+    │
+    ▼
+Parallel fetch: YouTubeService + ArchiveService + ScraperService
+    │
+    ▼
+LLMService.rank_results(raw_results, parsed_query)
+    → Scores each result 0.0–1.0 for relevance, re-orders list
+    │
+    ▼
+LLMService.highlight_vyakhanams(scraped_texts, parsed_query)
+    → Returns most relevant passages highlighted per scholar
+    │
+    ▼
+Cache in SQLite (key = normalized parsed query)
+    │
+    ▼
+Return to frontend
+```
+
+### LLM Model Selection (Amazon Bedrock)
+| Use case | Model | Why |
+|---|---|---|
+| Query parsing + term generation | **Llama 3.1 8B Instruct** | Fast (~1s), cheap ($0.0002/1k tokens), multilingual |
+| Result ranking | **Llama 3.1 8B Instruct** | Short prompts, batch scoring |
+| Vyakhanams highlighting | **Claude Haiku 3** | Better at nuanced Sanskrit/Telugu text comprehension |
+
+**Estimated cost per search:** ~$0.001–0.003 (fractions of a cent). 10,000 searches ≈ $10–30/month.
+
 ---
 
-## 4. Data Flow
+## 5. Data Flow
 
 1. User types query + selects language → clicks Search
 2. Frontend sends parallel requests to `/api/search?type=video`, `/api/search?type=audio`, `/api/vyakhanams`
-3. Backend checks SQLite cache for each request
-4. **Cache hit:** return cached JSON immediately
-5. **Cache miss:** call YouTube API + archive.org API + scraper in parallel, store results in SQLite, return to frontend
+3. Backend checks SQLite cache (key = normalized structured query from LLM)
+4. **Cache hit:** return cached JSON immediately (no LLM call needed)
+5. **Cache miss:**
+   - LLM parses query → structured intent
+   - LLM generates optimized search terms for each source
+   - YouTube API + archive.org API + scrapers called in parallel using LLM-generated terms
+   - LLM ranks/scores returned results for relevance
+   - LLM highlights relevant Vyakhanams passages
+   - Store all results in SQLite cache
 6. Frontend renders:
-   - Section 1: Videos tab (default) + Audio tab
-   - Section 2: Vyakhanams panel (independent render, may load slightly later)
+   - Section 1: Videos tab (default) + Audio tab — LLM-ranked results
+   - Section 2: Vyakhanams panel — LLM-highlighted passages per scholar
 
 ---
 
@@ -165,6 +244,7 @@ SanatanaDharmaSpeeches/
 ├── backend/                   # Python FastAPI
 │   ├── main.py
 │   ├── services/
+│   │   ├── llm_service.py        # Amazon Bedrock (parse, rank, highlight)
 │   │   ├── youtube_service.py
 │   │   ├── archive_service.py
 │   │   ├── scraper_service.py
@@ -181,6 +261,7 @@ SanatanaDharmaSpeeches/
 
 ## 8. Error Handling
 
+- **LLM call fails (Bedrock timeout):** Fall back to raw keyword search using the original query text directly
 - **YouTube API quota exceeded:** Return cached results; show "Results may be limited" banner
 - **Scraper fails for a site:** Skip that source silently, show results from remaining sources
 - **No results found:** Show friendly message with suggested alternative search terms

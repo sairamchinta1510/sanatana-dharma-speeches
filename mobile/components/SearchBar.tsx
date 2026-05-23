@@ -71,11 +71,13 @@ const styles = StyleSheet.create({
     shadowColor: "#000", shadowOpacity: 0.5, shadowRadius: 24,
     shadowOffset: { width: 0, height: 4 },
     elevation: 6, minHeight: 100,
+    outlineWidth: 0,
   },
   icon: { fontSize: 16, marginRight: 8, marginTop: 2, opacity: 0.6 },
   input: {
     flex: 1, color: COLORS.text, fontSize: 14,
     lineHeight: 22, minHeight: 80,
+    outlineWidth: 0,
   },
   searchBtn: {
     backgroundColor: "rgba(226, 168, 75, 0.85)",

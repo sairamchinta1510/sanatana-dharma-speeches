@@ -1,0 +1,7 @@
+backend/.env
+backend/dharma.db
+backend/.venv/
+mobile/.env
+mobile/node_modules/
+mobile/.expo/
+.superpowers/

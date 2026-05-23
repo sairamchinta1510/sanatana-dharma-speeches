@@ -35,3 +35,16 @@ def test_failed_request_skipped(svc):
     with patch("requests.get", side_effect=Exception("timeout")):
         results = svc.scrape("Siva Tatvam", lang="Telugu")
     assert results == []
+
+
+def test_sources_list_contains_only_telugu_sources(svc):
+    html = _html("<p>ఇది తెలుగు విషయ వివరణ. ఇది చాల పొడవుగా ఉండి కనీస అక్షరాల పరిమితిని దాటుతుంది. మరిన్ని వివరాలు ఇక్కడ ఉన్నాయి.</p>")
+    with patch("requests.get", return_value=html):
+        with patch("time.sleep"):
+            results = svc.scrape("Siva Tatvam", lang="Telugu")
+    assert len(results) == 2
+    assert {result["scholar"] for result in results} == {
+        "Brahmasri Chaganti Koteswara Rao",
+        "Brahmasri Garikapati Narasimha Rao",
+    }
+    assert all(result["lang"] == "Telugu" for result in results)

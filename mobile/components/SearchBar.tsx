@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import {
   View, TextInput, TouchableOpacity, Text,
-  ScrollView, StyleSheet,
+  ScrollView, StyleSheet, Platform,
 } from "react-native";
 import { COLORS } from "../constants/theme";
 
@@ -19,9 +19,13 @@ export function SearchBar({ onSearch, loading }: Props) {
 
   const submit = () => { if (text.trim()) onSearch(text.trim()); };
 
+  const glassStyle = Platform.OS === "web"
+    ? { backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)" } as any
+    : {};
+
   return (
     <View style={styles.container}>
-      <View style={styles.inputBox}>
+      <View style={[styles.inputBox, glassStyle]}>
         <Text style={styles.icon}>🔍</Text>
         <TextInput
           style={styles.input}
@@ -36,7 +40,7 @@ export function SearchBar({ onSearch, loading }: Props) {
         />
       </View>
       <TouchableOpacity
-        style={[styles.searchBtn, loading && styles.searchBtnDisabled]}
+        style={[styles.searchBtn, glassStyle, loading && styles.searchBtnDisabled]}
         onPress={submit}
         disabled={loading}
       >
@@ -46,7 +50,7 @@ export function SearchBar({ onSearch, loading }: Props) {
         {TOPIC_CHIPS.map((chip) => (
           <TouchableOpacity
             key={chip}
-            style={styles.chip}
+            style={[styles.chip, glassStyle]}
             onPress={() => { setText(chip); onSearch(chip); }}
           >
             <Text style={styles.chipText}>{chip}</Text>
@@ -61,29 +65,39 @@ const styles = StyleSheet.create({
   container: { paddingHorizontal: 16, paddingVertical: 12 },
   inputBox: {
     flexDirection: "row",
-    backgroundColor: COLORS.bgLight,
-    borderRadius: 12, borderWidth: 1.5, borderColor: COLORS.gold,
-    paddingHorizontal: 14, paddingVertical: 10,
-    shadowColor: COLORS.gold, shadowOpacity: 0.15, shadowRadius: 12,
-    elevation: 4, minHeight: 100,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.10)",
+    paddingHorizontal: 14, paddingVertical: 12,
+    shadowColor: "#000", shadowOpacity: 0.4, shadowRadius: 24,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6, minHeight: 100,
   },
-  icon: { fontSize: 16, marginRight: 8, marginTop: 2 },
+  icon: { fontSize: 16, marginRight: 8, marginTop: 2, opacity: 0.6 },
   input: {
     flex: 1, color: COLORS.text, fontSize: 14,
     lineHeight: 22, minHeight: 80,
   },
   searchBtn: {
-    backgroundColor: COLORS.gold, borderRadius: 10,
+    backgroundColor: "rgba(226, 168, 75, 0.85)",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.15)",
     paddingVertical: 12, marginTop: 8,
     alignItems: "center", justifyContent: "center",
+    shadowColor: "#000", shadowOpacity: 0.3, shadowRadius: 10,
+    shadowOffset: { width: 0, height: 2 },
   },
-  searchBtnDisabled: { opacity: 0.5 },
-  searchBtnText: { color: "#000", fontWeight: "700", fontSize: 14 },
+  searchBtnDisabled: { opacity: 0.4 },
+  searchBtnText: { color: "#0d1117", fontWeight: "700", fontSize: 14 },
   chips: { marginTop: 10 },
   chip: {
-    backgroundColor: COLORS.goldDim, borderWidth: 1,
-    borderColor: "#e2a84b33", borderRadius: 12,
-    paddingHorizontal: 12, paddingVertical: 4, marginRight: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.10)",
+    borderRadius: 20,
+    paddingHorizontal: 12, paddingVertical: 5, marginRight: 8,
   },
-  chipText: { color: COLORS.gold, fontSize: 11 },
+  chipText: { color: COLORS.textMuted, fontSize: 11 },
 });

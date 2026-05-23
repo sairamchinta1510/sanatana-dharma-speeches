@@ -58,3 +58,47 @@ def test_empty_api_key_raises(monkeypatch):
     monkeypatch.delenv("YOUTUBE_API_KEY", raising=False)
     with pytest.raises(ValueError, match="YOUTUBE_API_KEY"):
         YouTubeService()
+
+
+def test_filters_to_authentic_channels(svc, mock_youtube_build):
+    mock_youtube_build.search().list().execute.return_value = _make_yt_response([
+        {
+            "id": {"videoId": "vid1"},
+            "snippet": {
+                "title": "Siva Tatvam",
+                "channelTitle": "Chaganti Official",
+                "description": "",
+                "thumbnails": {"medium": {"url": ""}},
+            },
+        },
+        {
+            "id": {"videoId": "vid2"},
+            "snippet": {
+                "title": "Random video",
+                "channelTitle": "SomeRandomChannel",
+                "description": "",
+                "thumbnails": {"medium": {"url": ""}},
+            },
+        },
+    ])
+    results = svc.search(["Siva Tatvam Telugu"], lang="Telugu", max_results=5)
+    speakers = [r["speaker"] for r in results]
+    assert "Chaganti Official" in speakers
+    assert "SomeRandomChannel" not in speakers
+
+
+def test_falls_back_to_all_if_no_authentic_match(svc, mock_youtube_build):
+    mock_youtube_build.search().list().execute.return_value = _make_yt_response([
+        {
+            "id": {"videoId": "vid3"},
+            "snippet": {
+                "title": "Niche topic",
+                "channelTitle": "ObscureChannel",
+                "description": "",
+                "thumbnails": {"medium": {"url": ""}},
+            },
+        },
+    ])
+    results = svc.search(["very niche query"], lang="Telugu", max_results=5)
+    assert len(results) == 1
+    assert results[0]["speaker"] == "ObscureChannel"

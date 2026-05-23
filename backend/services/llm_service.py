@@ -10,8 +10,8 @@ from services.cost_tracking_service import CostTrackingService
 
 logger = logging.getLogger(__name__)
 
-LLAMA_MODEL = "meta.llama3-1-8b-instruct-v1:0"
-HAIKU_MODEL = "anthropic.claude-3-haiku-20240307-v1:0"
+LLAMA_MODEL = "us.meta.llama3-1-8b-instruct-v1:0"
+HAIKU_MODEL = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
 
 # Approximate cost per 1k tokens (USD)
 LLAMA_COST_PER_1K_IN = 0.0003

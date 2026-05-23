@@ -1,0 +1,57 @@
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8000";
+
+export interface VideoResult {
+  video_id: string;
+  title: string;
+  speaker: string;
+  description: string;
+  thumbnail: string;
+  url: string;
+  lang: string;
+}
+
+export interface AudioResult {
+  identifier: string;
+  title: string;
+  speaker: string;
+  description: string;
+  audio_url: string;
+  page_url: string;
+  lang: string;
+}
+
+export interface VyakhanamResult {
+  scholar: string;
+  affiliation: string;
+  text: string;
+  highlight: string | null;
+  lang: string;
+  source_url: string;
+}
+
+export interface SearchResponse<T> {
+  results: T[];
+  budget_warning: boolean;
+  from_cache: boolean;
+}
+
+async function apiFetch<T>(path: string): Promise<T> {
+  const res = await fetch(`${BASE_URL}${path}`);
+  if (!res.ok) throw new Error(`API error ${res.status}: ${await res.text()}`);
+  return res.json();
+}
+
+export const api = {
+  searchVideos: (q: string, lang: string) =>
+    apiFetch<SearchResponse<VideoResult>>(
+      `/api/search?q=${encodeURIComponent(q)}&lang=${encodeURIComponent(lang)}&type=video`
+    ),
+  searchAudio: (q: string, lang: string) =>
+    apiFetch<SearchResponse<AudioResult>>(
+      `/api/search?q=${encodeURIComponent(q)}&lang=${encodeURIComponent(lang)}&type=audio`
+    ),
+  getVyakhanams: (q: string, lang: string) =>
+    apiFetch<{ results: VyakhanamResult[]; from_cache: boolean }>(
+      `/api/vyakhanams?q=${encodeURIComponent(q)}&lang=${encodeURIComponent(lang)}`
+    ),
+};

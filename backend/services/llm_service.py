@@ -166,3 +166,25 @@ class LLMService:
         except Exception as e:
             logger.error(f"highlight_vyakhanams failed: {e}")
             return texts
+
+    def explain_topic(self, parsed: "ParsedQuery") -> "dict | None":
+        if self.tracker.is_budget_exceeded():
+            logger.warning("LLM budget exceeded — skipping explain_topic")
+            return None
+        prompt = (
+            f"You are a Sanatan Dharma scholar. "
+            f"Explain the topic \"{parsed.topic}\" in 2-3 clear sentences suitable for a devotee. "
+            f"Then suggest exactly 3 related topics they might want to explore next.\n\n"
+            f"Return ONLY valid JSON with keys: explanation (string), related_topics (array of 3 strings).\n"
+            f'Example: {{"explanation": "Siva Tatvam refers to...", "related_topics": ["Panchakshara", "Rudram", "Shiva Purana"]}}'
+        )
+        try:
+            text = self._call_haiku(prompt)
+            data = self._parse_json(text)
+            return {
+                "explanation": data.get("explanation", ""),
+                "related_topics": data.get("related_topics", []),
+            }
+        except Exception as e:
+            logger.error(f"explain_topic failed: {e}")
+            return None

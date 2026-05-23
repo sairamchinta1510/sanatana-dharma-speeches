@@ -110,3 +110,35 @@ def test_fallback_on_budget_exceeded(llm, mock_bedrock):
     result = llm_exceeded.parse_query("Siva Tatvam", lang="Telugu")
     assert result is None
     mock_bedrock.invoke_model.assert_not_called()
+
+
+
+def test_explain_topic_returns_explanation_and_related(llm, mock_bedrock):
+    parsed = ParsedQuery(
+        topic="Siva Tatvam", scripture=None, chapter=None, sloka=None,
+        keywords=["శివ తత్వం", "Shiva Tattva"],
+        language="Telugu", search_intent="conceptual discourse"
+    )
+    mock_bedrock.invoke_model.return_value = _haiku_response(json.dumps({
+        "explanation": "Siva Tatvam describes the ultimate nature of Lord Shiva as the formless Absolute.",
+        "related_topics": ["Panchakshara Mantra", "Rudra Abhishekam", "Shiva Purana"]
+    }))
+    result = llm.explain_topic(parsed)
+    assert result is not None
+    assert "Siva Tatvam" in result["explanation"] or len(result["explanation"]) > 10
+    assert len(result["related_topics"]) == 3
+
+
+
+def test_explain_topic_returns_none_on_budget_exceeded():
+    import database; database.init_db()
+    with database.db() as conn:
+        conn.execute("DELETE FROM llm_cost_log")
+    from services.cost_tracking_service import CostTrackingService
+    tracker = CostTrackingService(daily_limit_usd=0.0)
+    llm_exceeded = LLMService(tracker=tracker)
+    parsed = ParsedQuery(
+        topic="Siva Tatvam", scripture=None, chapter=None, sloka=None,
+        keywords=[], language="Telugu", search_intent="general"
+    )
+    assert llm_exceeded.explain_topic(parsed) is None

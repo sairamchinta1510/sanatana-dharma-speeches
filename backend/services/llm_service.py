@@ -179,7 +179,7 @@ class LLMService:
             f'Example: {{"explanation": "Siva Tatvam refers to...", "related_topics": ["Panchakshara", "Rudram", "Shiva Purana"]}}'
         )
         try:
-            text = self._call_haiku(prompt)
+            text = self._call_llama(prompt)
             data = self._parse_json(text)
             return {
                 "explanation": data.get("explanation", ""),

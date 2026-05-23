@@ -3,9 +3,16 @@ import os
 from contextlib import contextmanager
 
 DB_PATH = os.getenv("DB_PATH", "dharma.db")
+_memory_conn = None
 
 
 def get_connection() -> sqlite3.Connection:
+    global _memory_conn
+    if DB_PATH == ":memory:":
+        if _memory_conn is None:
+            _memory_conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+            _memory_conn.row_factory = sqlite3.Row
+        return _memory_conn
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
@@ -18,7 +25,8 @@ def db():
         yield conn
         conn.commit()
     finally:
-        conn.close()
+        if DB_PATH != ":memory:":
+            conn.close()
 
 
 def init_db() -> None:

@@ -1,4 +1,8 @@
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8000";
+const BASE_URL =
+  process.env.EXPO_PUBLIC_API_URL ??
+  (typeof window !== "undefined" && window.location?.hostname !== "localhost"
+    ? "https://api.find.sanatanadharmas.com"
+    : "http://localhost:8000");
 
 export interface VideoResult {
   video_id: string;
@@ -31,6 +35,8 @@ export interface VyakhanamResult {
 
 export interface SearchResponse<T> {
   results: T[];
+  explanation: string | null;
+  related_topics: string[];
   budget_warning: boolean;
   from_cache: boolean;
 }

@@ -12,8 +12,11 @@ interface AppState {
   videos: VideoResult[];
   audio: AudioResult[];
   vyakhanams: VyakhanamResult[];
+  explanation: string | null;
+  relatedTopics: string[];
   loading: boolean;
   budgetWarning: boolean;
+  searchError: string | null;
   currentPlayer: PlayerItem | null;
   setQuery: (q: string) => void;
   setLanguage: (l: Language) => void;
@@ -29,25 +32,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [videos, setVideos] = useState<VideoResult[]>([]);
   const [audio, setAudio] = useState<AudioResult[]>([]);
   const [vyakhanams, setVyakhanams] = useState<VyakhanamResult[]>([]);
+  const [explanation, setExplanation] = useState<string | null>(null);
+  const [relatedTopics, setRelatedTopics] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [budgetWarning, setBudgetWarning] = useState(false);
   const [currentPlayer, setCurrentPlayer] = useState<PlayerItem | null>(null);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   const search = useCallback(async (q: string) => {
     if (!q.trim()) return;
     setLoading(true);
+    setSearchError(null);
     try {
       const [videoRes, audioRes, vyakhanamRes] = await Promise.all([
         api.searchVideos(q, language),
         api.searchAudio(q, language),
-        api.getVyakhanams(q, language),
+        api.getVyakhanams(q, "Telugu"),  // always Telugu
       ]);
       setVideos(videoRes.results);
       setAudio(audioRes.results);
       setVyakhanams(vyakhanamRes.results);
+      setExplanation(videoRes.explanation ?? null);
+      setRelatedTopics(videoRes.related_topics ?? []);
       setBudgetWarning(videoRes.budget_warning || audioRes.budget_warning);
-    } catch (e) {
-      console.error("Search failed:", e);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("Search failed:", msg);
+      setSearchError(msg);
     } finally {
       setLoading(false);
     }
@@ -56,7 +67,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   return (
     <AppContext.Provider value={{
       query, language, videos, audio, vyakhanams,
-      loading, budgetWarning, currentPlayer,
+      explanation, relatedTopics,
+      loading, budgetWarning, searchError, currentPlayer,
       setQuery, setLanguage, search, setCurrentPlayer,
     }}>
       {children}

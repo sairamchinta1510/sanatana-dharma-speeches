@@ -10,10 +10,13 @@ import { AudioPlaylist } from "../components/AudioPlaylist";
 import { VyakhanamsPanel } from "../components/VyakhanamsPanel";
 import { COLORS } from "../constants/theme";
 
+import { ExplanationPanel } from "../components/ExplanationPanel";
+
 type ResultTab = "video" | "audio";
 
 export default function HomeScreen() {
-  const { videos, audio, vyakhanams, loading, budgetWarning, language, setLanguage, search } =
+  const { videos, audio, vyakhanams, loading, budgetWarning, searchError,
+          explanation, relatedTopics, language, setLanguage, search } =
     useApp();
   const [tab, setTab] = useState<ResultTab>("video");
   const hasResults = videos.length > 0 || audio.length > 0;
@@ -26,6 +29,12 @@ export default function HomeScreen() {
         <LanguageFilter selected={language} onSelect={setLanguage} />
       </View>
 
+      {searchError && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorText}>⚠️ Search error: {searchError}</Text>
+        </View>
+      )}
+
       {budgetWarning && (
         <View style={styles.warningBanner}>
           <Text style={styles.warningText}>
@@ -33,6 +42,12 @@ export default function HomeScreen() {
           </Text>
         </View>
       )}
+
+      <ExplanationPanel
+        explanation={explanation}
+        relatedTopics={relatedTopics}
+        onTopicPress={search}
+      />
 
       {hasResults && (
         <>
@@ -91,6 +106,13 @@ const styles = StyleSheet.create({
     textAlign: "center", color: COLORS.gold, fontSize: 10,
     letterSpacing: 2, opacity: 0.7, marginBottom: 8,
   },
+  errorBanner: {
+    marginHorizontal: 16, marginBottom: 8,
+    backgroundColor: "#4a000022",
+    borderWidth: 1, borderColor: "#cc4444",
+    borderRadius: 8, padding: 8,
+  },
+  errorText: { color: "#ff6666", fontSize: 11, textAlign: "center" },
   warningBanner: {
     marginHorizontal: 16, marginBottom: 8,
     backgroundColor: "#7d4e0022",

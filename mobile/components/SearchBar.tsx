@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import {
   View, TextInput, TouchableOpacity, Text,
-  ScrollView, StyleSheet, Platform,
+  ScrollView, StyleSheet,
 } from "react-native";
 import { COLORS } from "../constants/theme";
 
@@ -21,22 +21,27 @@ export function SearchBar({ onSearch, loading }: Props) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.inputRow}>
+      <View style={styles.inputBox}>
         <Text style={styles.icon}>🔍</Text>
         <TextInput
           style={styles.input}
           value={text}
           onChangeText={setText}
-          placeholder='Ask anything — "Siva Tatvam", "Bhagavad Gita Chapter 2 Sloka 5"...'
+          placeholder={"Ask anything about Sanatan Dharma...\n\"Explain Bhagavad Gita Chapter 2 Sloka 47\"\n\"What is Siva Tatvam according to Chaganti?\""}
           placeholderTextColor={COLORS.textDim}
-          onSubmitEditing={submit}
-          returnKeyType="search"
+          multiline
+          numberOfLines={4}
+          textAlignVertical="top"
           autoCorrect={false}
         />
-        <TouchableOpacity style={styles.button} onPress={submit} disabled={loading}>
-          <Text style={styles.buttonText}>{loading ? "..." : "Search"}</Text>
-        </TouchableOpacity>
       </View>
+      <TouchableOpacity
+        style={[styles.searchBtn, loading && styles.searchBtnDisabled]}
+        onPress={submit}
+        disabled={loading}
+      >
+        <Text style={styles.searchBtnText}>{loading ? "Searching..." : "🔍 Search"}</Text>
+      </TouchableOpacity>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chips}>
         {TOPIC_CHIPS.map((chip) => (
           <TouchableOpacity
@@ -54,21 +59,26 @@ export function SearchBar({ onSearch, loading }: Props) {
 
 const styles = StyleSheet.create({
   container: { paddingHorizontal: 16, paddingVertical: 12 },
-  inputRow: {
-    flexDirection: "row", alignItems: "center",
+  inputBox: {
+    flexDirection: "row",
     backgroundColor: COLORS.bgLight,
-    borderRadius: 28, borderWidth: 1.5, borderColor: COLORS.gold,
-    paddingHorizontal: 16, paddingVertical: Platform.OS === "ios" ? 12 : 8,
+    borderRadius: 12, borderWidth: 1.5, borderColor: COLORS.gold,
+    paddingHorizontal: 14, paddingVertical: 10,
     shadowColor: COLORS.gold, shadowOpacity: 0.15, shadowRadius: 12,
-    elevation: 4,
+    elevation: 4, minHeight: 100,
   },
-  icon: { fontSize: 16, marginRight: 8 },
-  input: { flex: 1, color: COLORS.text, fontSize: 14 },
-  button: {
-    backgroundColor: COLORS.gold, borderRadius: 16,
-    paddingHorizontal: 14, paddingVertical: 6, marginLeft: 8,
+  icon: { fontSize: 16, marginRight: 8, marginTop: 2 },
+  input: {
+    flex: 1, color: COLORS.text, fontSize: 14,
+    lineHeight: 22, minHeight: 80,
   },
-  buttonText: { color: "#000", fontWeight: "700", fontSize: 12 },
+  searchBtn: {
+    backgroundColor: COLORS.gold, borderRadius: 10,
+    paddingVertical: 12, marginTop: 8,
+    alignItems: "center", justifyContent: "center",
+  },
+  searchBtnDisabled: { opacity: 0.5 },
+  searchBtnText: { color: "#000", fontWeight: "700", fontSize: 14 },
   chips: { marginTop: 10 },
   chip: {
     backgroundColor: COLORS.goldDim, borderWidth: 1,

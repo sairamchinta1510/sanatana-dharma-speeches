@@ -10,7 +10,8 @@ A public community website for devotees to search and explore Sanatan Dharma spe
 
 **Target audience:** Small community — devotees and temple members.  
 **Access:** Fully public, no login required.  
-**Initial language:** Telugu (expandable to English, Sanskrit, Hindi).
+**Initial language:** Telugu (expandable to English, Sanskrit, Hindi).  
+**Distribution:** iOS App Store + Google Play Store + Web (single shared codebase via Expo).
 
 ---
 
@@ -97,17 +98,20 @@ A public community website for devotees to search and explore Sanatan Dharma spe
                   └──────────────────────────────┘
 ```
 
-### 3.1 Frontend (React + TypeScript)
-- **Vite** build tool for fast dev/build
-- **Components:**
-  - `SearchBar` — large rounded input, search button, suggestion chips
-  - `LanguageFilter` — pill buttons, Telugu selected by default
-  - `VideoPlaylist` — playlist rows with YouTube embed on play
-  - `AudioPlaylist` — playlist rows with HTML5 `<audio>` on play
-  - `VyakhanamsPanel` — separate scrollable text section, color-coded per scholar
-  - `StickyPlayer` — fixed bottom bar with playback controls, progress bar
-- **State management:** React Context (lightweight, no Redux needed)
-- **Styling:** Tailwind CSS with custom dark theme (navy/gold)
+### 3.1 Frontend (Expo + React Native + Web)
+- **Expo** managed workflow — single codebase targets iOS, Android, and Web
+- **expo-router** — file-based navigation (works on all three platforms)
+- **NativeWind v4** — Tailwind CSS syntax compiled for React Native StyleSheet
+- **Components:** (all cross-platform unless noted)
+  - `SearchBar` — large rounded TextInput, search button, suggestion chips
+  - `LanguageFilter` — pill TouchableOpacity buttons, Telugu selected by default
+  - `VideoPlaylist` — playlist rows; `react-native-youtube-iframe` on mobile, YouTube iframe on web
+  - `AudioPlaylist` — playlist rows with `expo-av` Audio player (iOS/Android/Web)
+  - `VyakhanamsPanel` — separate ScrollView text section, color-coded per scholar; expandable to full-screen modal
+  - `StickyPlayer` — fixed bottom bar using Animated API + safe area insets
+- **State management:** React Context (no Redux needed)
+- **Styling:** NativeWind with custom dark theme tokens (navy/gold)
+- **Publishing:** EAS Build for App Store + Play Store; `expo export --platform web` for web hosting on AWS S3 + CloudFront
 
 ### 3.2 Backend (Python + FastAPI)
 - **Endpoints:**
@@ -214,13 +218,15 @@ Return to frontend
 
 ## 6. UI Design
 
-- **Theme:** Dark spiritual — deep navy (#0d1117) background, golden/saffron (#e2a84b) accents
-- **Language:** Telugu script supported via system fonts (no custom font loading needed for Telugu)
-- **Search bar:** Large, rounded (border-radius 28px), glowing gold border on focus
-- **Language filter:** Pill buttons below search, Telugu highlighted by default
-- **Divider between sections:** Decorative `✦ ✦ ✦` with gradient lines
-- **Vyakhanams scholars:** Color-coded left border per scholar (gold, blue, green...)
-- **Sticky player:** Fixed bottom bar, 60px height, always visible during playback
+- **Theme:** Dark spiritual — deep navy (`#0d1117`) background, golden/saffron (`#e2a84b`) accents; defined in `constants/theme.ts` as NativeWind tokens
+- **Language:** Telugu script supported via system fonts on iOS/Android (Noto Sans Telugu fallback on web)
+- **Search bar:** Large, rounded (`borderRadius: 28`), glowing gold border on focus; uses `TextInput` with `multiline={false}`
+- **Language filter:** `TouchableOpacity` pill buttons, Telugu highlighted by default
+- **Divider between sections:** Decorative `✦ ✦ ✦` with gradient lines (`expo-linear-gradient`)
+- **Vyakhanams scholars:** Color-coded left border per scholar (gold, blue, green…)
+- **Sticky player:** Fixed bottom bar using `position: absolute` + `useSafeAreaInsets()` — always above home indicator on iOS, nav bar on Android
+- **App icons & splash:** Saffron/navy with Om symbol — configured in `app.json`
+- **Platform-specific video:** `react-native-youtube-iframe` on native, `<iframe>` via `Platform.OS === 'web'` guard on web
 
 ---
 
@@ -228,28 +234,34 @@ Return to frontend
 
 ```
 SanatanaDharmaSpeeches/
-├── frontend/                  # React + TypeScript + Vite
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── SearchBar.tsx
-│   │   │   ├── LanguageFilter.tsx
-│   │   │   ├── VideoPlaylist.tsx
-│   │   │   ├── AudioPlaylist.tsx
-│   │   │   ├── VyakhanamsPanel.tsx
-│   │   │   └── StickyPlayer.tsx
-│   │   ├── context/AppContext.tsx
-│   │   ├── api/client.ts
-│   │   └── App.tsx
-│   ├── package.json
-│   └── vite.config.ts
-├── backend/                   # Python FastAPI
+├── mobile/                         # Expo app (iOS + Android + Web)
+│   ├── app/                        # expo-router file-based routes
+│   │   ├── _layout.tsx             # Root layout, StickyPlayer, AppContext
+│   │   ├── index.tsx               # Home screen (search + results)
+│   │   └── vyakhanam/[id].tsx      # Full-screen Vyakhanam modal
+│   ├── components/
+│   │   ├── SearchBar.tsx
+│   │   ├── LanguageFilter.tsx
+│   │   ├── VideoPlaylist.tsx
+│   │   ├── AudioPlaylist.tsx
+│   │   ├── VyakhanamsPanel.tsx
+│   │   └── StickyPlayer.tsx
+│   ├── context/AppContext.tsx
+│   ├── api/client.ts
+│   ├── constants/theme.ts          # Color tokens (navy, gold, etc.)
+│   ├── app.json                    # Expo config (name, icons, splash)
+│   ├── eas.json                    # EAS Build profiles
+│   ├── tailwind.config.js          # NativeWind config
+│   └── package.json
+├── backend/                        # Python FastAPI
 │   ├── main.py
 │   ├── services/
-│   │   ├── llm_service.py        # Amazon Bedrock (parse, rank, highlight)
+│   │   ├── llm_service.py          # Amazon Bedrock (parse, rank, highlight)
 │   │   ├── youtube_service.py
 │   │   ├── archive_service.py
 │   │   ├── scraper_service.py
-│   │   └── cache_service.py
+│   │   ├── cache_service.py
+│   │   └── cost_tracking_service.py
 │   ├── routers/
 │   │   ├── search.py
 │   │   └── vyakhanams.py
@@ -302,7 +314,27 @@ At $0.00074/search and a $1/day cap → **~1,350 LLM-powered searches/day** befo
 
 ---
 
-## 10. Out of Scope (v1)
+## 10. Deployment
+
+### Backend — AWS
+- **AWS EC2** (t3.small) running FastAPI via `uvicorn` + `nginx` reverse proxy
+- **SQLite** stored on EC2 EBS volume (simple, no RDS cost)
+- **Amazon Bedrock** called from EC2 via IAM role (no credentials in code)
+- **Environment variables:** `YOUTUBE_API_KEY`, `AWS_REGION`, `DAILY_LLM_BUDGET_USD=1.0`
+
+### Mobile — App Stores
+- **EAS Build** compiles iOS `.ipa` and Android `.aab` in the cloud
+- Submit to **Apple App Store** and **Google Play Store** via `eas submit`
+- App category: Education / Spirituality
+
+### Web — AWS
+- `npx expo export --platform web` produces a static build
+- Hosted on **AWS S3 + CloudFront** (cheap, fast CDN globally)
+- API calls from web point to the EC2 backend URL
+
+---
+
+## 11. Out of Scope (v1)
 
 - User accounts / favorites / playlists
 - Admin panel for curating content

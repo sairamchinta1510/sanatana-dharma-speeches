@@ -38,7 +38,7 @@ export function VideoPlaylist({ videos }: Props) {
               width={width - 32}
               play
               videoId={item.video_id}
-              onChangeState={(state) => {
+              onChangeState={(state: string) => {
                 if (state === "ended") setPlayingId(null);
               }}
             />

@@ -1,10 +1,6 @@
-import os, pytest
+import pytest
 from unittest.mock import MagicMock, patch
 from fastapi.testclient import TestClient
-
-os.environ["DB_PATH"] = ":memory:"
-os.environ.setdefault("YOUTUBE_API_KEY", "test-key")
-os.environ.setdefault("AWS_REGION", "us-east-1")
 
 
 @pytest.fixture

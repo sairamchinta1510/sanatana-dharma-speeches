@@ -35,3 +35,21 @@ def test_vyakhanams_cache_hit(client):
         response = client.get("/api/vyakhanams?q=Siva+Tatvam&lang=Telugu")
     assert response.status_code == 200
     assert response.json()["from_cache"] is True
+
+
+def test_vyakhanams_always_uses_telugu(client):
+    with patch("routers.vyakhanams.scraper_svc") as mock_scraper, \
+         patch("routers.vyakhanams.llm_svc") as mock_llm, \
+         patch("routers.vyakhanams.cache_svc") as mock_cache:
+        mock_cache.get.return_value = None
+        mock_scraper.scrape.return_value = SCHOLAR_RESULT
+        mock_llm.parse_query.return_value = MagicMock(topic="Siva Tatvam")
+        mock_llm.highlight_vyakhanams.return_value = SCHOLAR_RESULT
+
+        response = client.get("/api/vyakhanams?q=Siva+Tatvam&lang=English")
+
+    assert response.status_code == 200
+    mock_cache.get.assert_called_once_with("vyakhanam", "Siva Tatvam", "Telugu")
+    mock_scraper.scrape.assert_called_once_with("Siva Tatvam", lang="Telugu")
+    mock_llm.parse_query.assert_called_once_with("Siva Tatvam", lang="Telugu")
+    mock_cache.set.assert_called_once_with("vyakhanam", "Siva Tatvam", "Telugu", SCHOLAR_RESULT)

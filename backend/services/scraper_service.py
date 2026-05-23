@@ -14,17 +14,10 @@ SOURCES = [
         "content_selector": "p",
     },
     {
-        "scholar": "Sri Sri Ravishankar",
-        "affiliation": "artofliving.org",
-        "url_template": "https://www.artofliving.org/in-en/search?q={query}",
+        "scholar": "Brahmasri Garikapati Narasimha Rao",
+        "affiliation": "speakingtree.in",
+        "url_template": "https://www.speakingtree.in/search/{query}",
         "lang": "Telugu",
-        "content_selector": "p",
-    },
-    {
-        "scholar": "Swami Sarvapriyananda",
-        "affiliation": "vedantany.org",
-        "url_template": "https://vedantany.org/?s={query}",
-        "lang": "English",
         "content_selector": "p",
     },
 ]

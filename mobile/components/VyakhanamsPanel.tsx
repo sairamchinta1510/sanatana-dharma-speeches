@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import {
   View, Text, ScrollView, TouchableOpacity,
-  Modal, StyleSheet, SafeAreaView,
+  Modal, StyleSheet, SafeAreaView, Linking,
 } from "react-native";
 import { VyakhanamResult } from "../api/client";
 import { COLORS, SCHOLAR_COLORS } from "../constants/theme";
@@ -32,6 +32,14 @@ export function VyakhanamsPanel({ vyakhanams }: Props) {
             </View>
           </View>
           <Text style={styles.text}>{v.highlight ?? v.text}</Text>
+          {v.source_url ? (
+            <TouchableOpacity
+              onPress={() => Linking.openURL(v.source_url)}
+              style={styles.sourceLink}
+            >
+              <Text style={styles.sourceLinkText}>📖 Read original →</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       ))}
     </ScrollView>
@@ -95,6 +103,8 @@ const styles = StyleSheet.create({
   badge: { borderRadius: 8, paddingHorizontal: 6, paddingVertical: 1 },
   badgeText: { fontSize: 8 },
   text: { color: COLORS.textMuted, fontSize: 11, lineHeight: 18 },
+  sourceLink: { marginTop: 6 },
+  sourceLinkText: { color: COLORS.gold, fontSize: 10, opacity: 0.85 },
   modal: { flex: 1, backgroundColor: COLORS.bg },
   modalHeader: {
     flexDirection: "row", justifyContent: "space-between", alignItems: "center",

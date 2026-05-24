@@ -1,10 +1,12 @@
 import json
 import logging
 import os
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
 import boto3
+import requests
 
 from services.cost_tracking_service import CostTrackingService
 
@@ -12,6 +14,62 @@ logger = logging.getLogger(__name__)
 
 LLAMA_MODEL = "us.meta.llama3-1-8b-instruct-v1:0"
 HAIKU_MODEL = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+
+_WIKI_HEADERS = {"User-Agent": "SanatanaDharmaSpeeches/1.0 (educational research)"}
+_WIKI_API = "https://te.wikipedia.org/w/api.php"
+
+
+def _fetch_wikipedia_telugu(query: str, telugu_query: str) -> list[dict]:
+    """Search Telugu Wikipedia and return top result as a vyakhanam entry."""
+    try:
+        # Search Telugu Wikipedia
+        search = requests.get(_WIKI_API, params={
+            "action": "query", "list": "search",
+            "srsearch": telugu_query or query,
+            "srnamespace": "0", "srlimit": "1", "format": "json",
+        }, headers=_WIKI_HEADERS, timeout=8).json()
+        results = search.get("query", {}).get("search", [])
+        if not results:
+            # Fallback: search in English
+            search = requests.get(_WIKI_API, params={
+                "action": "query", "list": "search",
+                "srsearch": query, "srnamespace": "0",
+                "srlimit": "1", "format": "json",
+            }, headers=_WIKI_HEADERS, timeout=8).json()
+            results = search.get("query", {}).get("search", [])
+        if not results:
+            return []
+
+        title = results[0]["title"]
+        # Fetch intro extract
+        extract_resp = requests.get(_WIKI_API, params={
+            "action": "query", "titles": title,
+            "prop": "extracts", "exintro": "true",
+            "exsentences": "5", "format": "json",
+        }, headers=_WIKI_HEADERS, timeout=8).json()
+        pages = extract_resp.get("query", {}).get("pages", {})
+        page = next(iter(pages.values()))
+        raw_html = page.get("extract", "")
+        # Strip HTML tags
+        text = re.sub(r"<[^>]+>", "", raw_html).strip()
+        if not text:
+            return []
+
+        sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", text) if s.strip()]
+        body = " ".join(sentences[:4])
+        highlight = sentences[0] if sentences else body[:150]
+        page_url = f"https://te.wikipedia.org/wiki/{title.replace(' ', '_')}"
+        return [{
+            "scholar": "తెలుగు వికీపీడియా",
+            "affiliation": "Wikipedia Telugu",
+            "source_url": page_url,
+            "text": body,
+            "highlight": highlight,
+            "lang": "Telugu",
+        }]
+    except Exception as e:
+        logger.error("Wikipedia Telugu fetch failed: %s", e)
+        return []
 
 # Approximate cost per 1k tokens (USD)
 LLAMA_COST_PER_1K_IN = 0.0003
@@ -167,51 +225,21 @@ class LLMService:
             logger.error(f"highlight_vyakhanams failed: {e}")
             return texts
 
-    _VYAKHANAM_SCHOLARS = [
-        {
-            "scholar": "Brahmasri Chaganti Koteswara Rao",
-            "affiliation": "chaganti.net",
-            "source_url": "https://www.chaganti.net",
-        },
-        {
-            "scholar": "Brahmasri Samavedam Shanmukha Sharma",
-            "affiliation": "Sanatana Dharma Parishad",
-            "source_url": "https://www.youtube.com/@SamavedamShanmukhasarma",
-        },
-    ]
-
     def generate_telugu_vyakhanams(self, query: str) -> list[dict]:
-        """Generate authentic Telugu vyakhanams using LLM when scraper returns nothing."""
+        """Fetch authentic Telugu text from Telugu Wikipedia as vyakhanam fallback."""
         if self.tracker.is_budget_exceeded():
             logger.warning("LLM budget exceeded — skipping generate_telugu_vyakhanams")
             return []
-        results = []
-        for scholar in self._VYAKHANAM_SCHOLARS:
+        # Use Llama to translate the query into Telugu for better Wikipedia search
+        try:
             prompt = (
-                f"{scholar['scholar']} గారి వ్యాఖ్యానం: \"{query}\" గురించి తెలుగులో 3 వాక్యాలు రాయండి. "
-                "Only Telugu script. No English."
+                f"Translate this to Telugu script only, no other text: \"{query}\""
             )
-            try:
-                raw = self._call_llama(prompt).strip()
-                if not raw:
-                    continue
-                # Take first 3 sentences (split by Telugu danda ।  or newline)
-                sentences = [s.strip() for s in raw.replace("।", ".").replace("\n", " ").split(".") if s.strip()]
-                text = ". ".join(sentences[:3])
-                if text:
-                    text += "."
-                highlight = sentences[0] + "." if sentences else text[:120]
-                results.append({
-                    "scholar": scholar["scholar"],
-                    "affiliation": scholar["affiliation"],
-                    "source_url": scholar["source_url"],
-                    "text": text,
-                    "highlight": highlight,
-                    "lang": "Telugu",
-                })
-            except Exception as e:
-                logger.error(f"generate_telugu_vyakhanams failed for {scholar['scholar']}: {e}")
-        return results
+            telugu_query = self._call_llama(prompt).strip().split("\n")[0].strip()
+        except Exception:
+            telugu_query = query
+
+        return _fetch_wikipedia_telugu(query, telugu_query)
 
     def explain_topic(self, parsed: "ParsedQuery") -> "dict | None":
         if self.tracker.is_budget_exceeded():

@@ -167,49 +167,51 @@ class LLMService:
             logger.error(f"highlight_vyakhanams failed: {e}")
             return texts
 
+    _VYAKHANAM_SCHOLARS = [
+        {
+            "scholar": "Brahmasri Chaganti Koteswara Rao",
+            "affiliation": "chaganti.net",
+            "source_url": "https://www.chaganti.net",
+        },
+        {
+            "scholar": "Brahmasri Samavedam Shanmukha Sharma",
+            "affiliation": "Sanatana Dharma Parishad",
+            "source_url": "https://www.youtube.com/@SamavedamShanmukhasarma",
+        },
+    ]
+
     def generate_telugu_vyakhanams(self, query: str) -> list[dict]:
         """Generate authentic Telugu vyakhanams using LLM when scraper returns nothing."""
         if self.tracker.is_budget_exceeded():
             logger.warning("LLM budget exceeded — skipping generate_telugu_vyakhanams")
             return []
-        prompt = (
-            f"Topic: \"{query}\"\n"
-            "Write 2 short vyakhanams (explanations) in Telugu script for this topic.\n"
-            "Return ONLY a JSON array. No extra text before or after.\n"
-            "Format:\n"
-            '[{"scholar":"Brahmasri Chaganti Koteswara Rao","affiliation":"chaganti.net","source_url":"https://www.chaganti.net",'
-            '"text":"<3 sentences in Telugu script about the topic>","highlight":"<1 sentence in Telugu script>","lang":"Telugu"},'
-            '{"scholar":"Brahmasri Samavedam Shanmukha Sharma","affiliation":"Sanatana Dharma Parishad",'
-            '"source_url":"https://www.youtube.com/@SamavedamShanmukhasarma",'
-            '"text":"<3 sentences in Telugu script about the topic>","highlight":"<1 sentence in Telugu script>","lang":"Telugu"}]'
-        )
-        try:
-            raw = self._call_llama(prompt)
-            # Extract JSON array from response (Llama may add preamble)
-            start = raw.find("[")
-            end = raw.rfind("]")
-            if start == -1 or end == -1:
-                logger.error("generate_telugu_vyakhanams: no JSON array in response")
-                return []
-            data = json.loads(raw[start:end + 1])
-            if not isinstance(data, list):
-                return []
-            results = []
-            for item in data:
-                if not isinstance(item, dict):
+        results = []
+        for scholar in self._VYAKHANAM_SCHOLARS:
+            prompt = (
+                f"{scholar['scholar']} గారి వ్యాఖ్యానం: \"{query}\" గురించి తెలుగులో 3 వాక్యాలు రాయండి. "
+                "Only Telugu script. No English."
+            )
+            try:
+                raw = self._call_llama(prompt).strip()
+                if not raw:
                     continue
+                # Take first 3 sentences (split by Telugu danda ।  or newline)
+                sentences = [s.strip() for s in raw.replace("।", ".").replace("\n", " ").split(".") if s.strip()]
+                text = ". ".join(sentences[:3])
+                if text:
+                    text += "."
+                highlight = sentences[0] + "." if sentences else text[:120]
                 results.append({
-                    "scholar": item.get("scholar", ""),
-                    "affiliation": item.get("affiliation", ""),
-                    "source_url": item.get("source_url", ""),
-                    "text": item.get("text", ""),
-                    "highlight": item.get("highlight"),
+                    "scholar": scholar["scholar"],
+                    "affiliation": scholar["affiliation"],
+                    "source_url": scholar["source_url"],
+                    "text": text,
+                    "highlight": highlight,
                     "lang": "Telugu",
                 })
-            return results
-        except Exception as e:
-            logger.error(f"generate_telugu_vyakhanams failed: {e}")
-            return []
+            except Exception as e:
+                logger.error(f"generate_telugu_vyakhanams failed for {scholar['scholar']}: {e}")
+        return results
 
     def explain_topic(self, parsed: "ParsedQuery") -> "dict | None":
         if self.tracker.is_budget_exceeded():

@@ -34,8 +34,10 @@ export function VyakhanamsPanel({ vyakhanams }: Props) {
           <Text style={styles.text}>{v.highlight ?? v.text}</Text>
           {v.source_url ? (
             <TouchableOpacity
-              onPress={() => Linking.openURL(v.source_url)}
+              onPress={() => { const url = v.source_url; if (url) Linking.openURL(url).catch(() => {}); }}
               style={styles.sourceLink}
+              accessibilityRole="link"
+              accessibilityLabel={`Read original source for ${v.scholar}`}
             >
               <Text style={styles.sourceLinkText}>📖 Read original →</Text>
             </TouchableOpacity>
@@ -104,7 +106,7 @@ const styles = StyleSheet.create({
   badgeText: { fontSize: 8 },
   text: { color: COLORS.textMuted, fontSize: 11, lineHeight: 18 },
   sourceLink: { marginTop: 6 },
-  sourceLinkText: { color: COLORS.gold, fontSize: 10, opacity: 0.85 },
+  sourceLinkText: { color: COLORS.gold + "D9", fontSize: 10 },
   modal: { flex: 1, backgroundColor: COLORS.bg },
   modalHeader: {
     flexDirection: "row", justifyContent: "space-between", alignItems: "center",

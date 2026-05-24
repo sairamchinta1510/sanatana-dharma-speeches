@@ -158,7 +158,7 @@ class LLMService:
             "the excerpt should be the single most relevant sentence or passage (max 200 chars)."
         )
         try:
-            text = self._call_haiku(prompt)
+            text = self._call_llama(prompt)
             highlights = {h["scholar"]: h["excerpt"] for h in self._parse_json(text)}
             for t in texts:
                 t["highlight"] = highlights.get(t["scholar"], t["text"][:200])
@@ -173,26 +173,25 @@ class LLMService:
             logger.warning("LLM budget exceeded — skipping generate_telugu_vyakhanams")
             return []
         prompt = (
-            f"You are an expert on Sanatan Dharma scriptures. "
-            f"For the topic \"{query}\", generate 2 authentic scholar vyakhanams (explanations) in Telugu language.\n\n"
-            "Return ONLY valid JSON array with exactly 2 objects, each having:\n"
-            "  scholar: name of a real Telugu Dharma scholar\n"
-            "  affiliation: their organization\n"
-            "  source_url: their real website URL\n"
-            "  text: 3-4 sentences of authentic explanation IN TELUGU SCRIPT (must use Telugu Unicode characters)\n"
-            "  highlight: single most important sentence from text IN TELUGU SCRIPT\n"
-            "  lang: \"Telugu\"\n\n"
-            "Use these real scholars:\n"
-            "1. Brahmasri Chaganti Koteswara Rao, chaganti.net\n"
-            "2. Brahmasri Samavedam Shanmukha Sharma, youtube.com/@SamavedamShanmukhasarma\n\n"
-            "IMPORTANT: The 'text' and 'highlight' fields MUST be written entirely in Telugu script.\n"
-            "Example structure (fill with real Telugu content about the topic):\n"
-            '[{"scholar":"Brahmasri Chaganti Koteswara Rao","affiliation":"chaganti.net",'
-            '"source_url":"https://www.chaganti.net","text":"<Telugu text here>","highlight":"<Telugu highlight>","lang":"Telugu"}]'
+            f"Topic: \"{query}\"\n"
+            "Write 2 short vyakhanams (explanations) in Telugu script for this topic.\n"
+            "Return ONLY a JSON array. No extra text before or after.\n"
+            "Format:\n"
+            '[{"scholar":"Brahmasri Chaganti Koteswara Rao","affiliation":"chaganti.net","source_url":"https://www.chaganti.net",'
+            '"text":"<3 sentences in Telugu script about the topic>","highlight":"<1 sentence in Telugu script>","lang":"Telugu"},'
+            '{"scholar":"Brahmasri Samavedam Shanmukha Sharma","affiliation":"Sanatana Dharma Parishad",'
+            '"source_url":"https://www.youtube.com/@SamavedamShanmukhasarma",'
+            '"text":"<3 sentences in Telugu script about the topic>","highlight":"<1 sentence in Telugu script>","lang":"Telugu"}]'
         )
         try:
-            raw = self._call_haiku(prompt)
-            data = self._parse_json(raw)
+            raw = self._call_llama(prompt)
+            # Extract JSON array from response (Llama may add preamble)
+            start = raw.find("[")
+            end = raw.rfind("]")
+            if start == -1 or end == -1:
+                logger.error("generate_telugu_vyakhanams: no JSON array in response")
+                return []
+            data = json.loads(raw[start:end + 1])
             if not isinstance(data, list):
                 return []
             results = []

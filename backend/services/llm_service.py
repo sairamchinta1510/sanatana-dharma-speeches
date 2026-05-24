@@ -18,6 +18,53 @@ HAIKU_MODEL = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
 _WIKI_HEADERS = {"User-Agent": "SanatanaDharmaSpeeches/1.0 (educational research)"}
 _WIKI_API = "https://te.wikipedia.org/w/api.php"
 
+# Four major commentary traditions shown as vyakhanam cards
+_TRADITIONS = [
+    {
+        "scholar": "ఆది శంకరాచార్యులు",
+        "affiliation": "అద్వైత వేదాంతం",
+        "source_url": "https://te.wikipedia.org/wiki/ఆది_శంకరాచార్యుడు",
+        "school_en": "Adi Shankaracharya's Advaita Vedanta",
+        "focus_en": "non-dualism: Atman equals Brahman, the world is maya (illusion), liberation through Self-knowledge (Jnana yoga)",
+    },
+    {
+        "scholar": "శ్రీ రామానుజాచార్యులు",
+        "affiliation": "విశిష్టాద్వైతం",
+        "source_url": "https://te.wikipedia.org/wiki/రామానుజాచార్యుడు",
+        "school_en": "Ramanuja's Vishishtadvaita",
+        "focus_en": "qualified non-dualism: personal God (Krishna/Vishnu), liberation through devotion (Bhakti yoga) and complete surrender (Prapatti)",
+    },
+    {
+        "scholar": "శ్రీ మాధ్వాచార్యులు",
+        "affiliation": "ద్వైత వేదాంతం",
+        "source_url": "https://te.wikipedia.org/wiki/మాధ్వాచార్యుడు",
+        "school_en": "Madhvacharya's Dvaita Vedanta",
+        "focus_en": "strict dualism: God and soul are eternally distinct, liberation only through God's grace and total surrender to Vishnu/Krishna",
+    },
+    {
+        "scholar": "సమగ్ర సారాంశం",
+        "affiliation": "భగవద్గీత సందేశం",
+        "source_url": "https://te.wikipedia.org/wiki/భగవద్గీత",
+        "school_en": "Unified Bhagavad Gita message (all traditions)",
+        "focus_en": "Karma yoga (act without attachment), Jnana yoga (know your true Self), Bhakti yoga (surrender to God), the four paths to moksha (liberation)",
+    },
+]
+
+
+def _translate_to_telugu(text: str) -> str:
+    """Translate English text to Telugu using AWS Translate."""
+    try:
+        client = boto3.client("translate", region_name=os.getenv("AWS_DEFAULT_REGION", "us-east-1"))
+        result = client.translate_text(
+            Text=text[:4500],  # AWS Translate limit is 5000 bytes
+            SourceLanguageCode="en",
+            TargetLanguageCode="te",
+        )
+        return result["TranslatedText"]
+    except Exception as e:
+        logger.error("AWS Translate failed: %s", e)
+        return ""
+
 
 def _wiki_get(params: dict) -> dict:
     """GET from Telugu Wikipedia, always decoding response as UTF-8."""
@@ -243,20 +290,49 @@ class LLMService:
             return texts
 
     def generate_telugu_vyakhanams(self, query: str) -> list[dict]:
-        """Fetch authentic Telugu text from Telugu Wikipedia as vyakhanam fallback."""
+        """Generate authentic Telugu vyakhanams for each major commentary tradition.
+
+        Uses Llama to write English descriptions per tradition, then AWS Translate
+        for reliable Telugu Unicode (avoids Llama's UTF-8 corruption issue on EC2).
+        Falls back to Telugu Wikipedia if both services fail.
+        """
         if self.tracker.is_budget_exceeded():
             logger.warning("LLM budget exceeded — skipping generate_telugu_vyakhanams")
             return []
-        # Use Llama to translate the query into Telugu for better Wikipedia search
-        try:
-            prompt = (
-                f"Translate this to Telugu script only, no other text: \"{query}\""
-            )
-            telugu_query = self._call_llama(prompt).strip().split("\n")[0].strip()
-        except Exception:
-            telugu_query = query
 
-        return _fetch_wikipedia_telugu(query, telugu_query)
+        results = []
+        for tradition in _TRADITIONS:
+            prompt = (
+                f"Write exactly 3 clear sentences about '{query}' from the perspective of "
+                f"{tradition['school_en']}. Focus on {tradition['focus_en']}. "
+                "Be specific, insightful, and practical. "
+                "Do not start with 'According to' or 'In this tradition'. "
+                "Write directly about the topic."
+            )
+            try:
+                english_text = self._call_llama(prompt).strip()
+                # Remove any leading/trailing quotes or boilerplate
+                english_text = english_text.strip('"\'').strip()
+                if not english_text or len(english_text) < 30:
+                    continue
+                telugu_text = _translate_to_telugu(english_text)
+                if not telugu_text:
+                    continue
+                results.append({
+                    "scholar": tradition["scholar"],
+                    "affiliation": tradition["affiliation"],
+                    "source_url": tradition["source_url"],
+                    "text": telugu_text,
+                    "highlight": telugu_text[:250],
+                    "lang": "Telugu",
+                })
+            except Exception as e:
+                logger.error("Failed to generate vyakhanam for %s: %s", tradition["scholar"], e)
+
+        if not results:
+            # Last resort: Telugu Wikipedia
+            return _fetch_wikipedia_telugu(query, "")
+        return results
 
     def explain_topic(self, parsed: "ParsedQuery") -> "dict | None":
         if self.tracker.is_budget_exceeded():

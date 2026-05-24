@@ -29,8 +29,8 @@ function AudioRow({ item, isActive, onPlay }: {
   useEffect(() => {
     const el = audioRef.current;
     if (!el) return;
-    if (isActive) { el.play().catch(() => {}); }
-    else { el.pause(); }
+    // Only pause when row becomes inactive — play() is called directly in the click handler
+    if (!isActive) { el.pause(); }
     return () => { el.pause(); };
   }, [isActive]);
 
@@ -107,23 +107,25 @@ export function AudioPlaylist({ audio }: Props) {
 
   const play = (item: AudioResult, el: HTMLAudioElement) => {
     if (playingAudioId === item.identifier) {
-      // Toggle play/pause — do NOT reset currentTime
+      // Toggle play/pause on the same track
       if (el.paused) {
-        el.play().catch(() => {});
+        el.play().catch(console.error);
         setCurrentAudio(item);
       } else {
         el.pause();
         setCurrentAudio(null);
-        // Keep playingAudioId — row stays highlighted as paused
       }
       return;
     }
-    // New track — stop previous
+    // Switch to new track — stop previous immediately
     if (activeAudioElRef.current && activeAudioElRef.current !== el) {
       activeAudioElRef.current.pause();
       activeAudioElRef.current.currentTime = 0;
     }
     activeAudioElRef.current = el;
+    // Call play() here — must stay within the user-gesture call stack
+    // (browser autoplay policy blocks play() called from useEffect/async context)
+    el.play().catch(console.error);
     setPlayingAudioId(item.identifier);
     setCurrentAudio(item);
   };

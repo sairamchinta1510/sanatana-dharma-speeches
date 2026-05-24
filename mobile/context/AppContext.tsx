@@ -21,11 +21,14 @@ interface AppState {
   currentAudio: AudioResult | null;
   audioQueue: AudioResult[];
   audioListRef: React.MutableRefObject<{ scrollToTop: () => void } | null>;
+  playingAudioId: string | null;
+  activeAudioElRef: React.MutableRefObject<HTMLAudioElement | null>;
   setQuery: (q: string) => void;
   setLanguage: (l: Language) => void;
   search: (q: string) => Promise<void>;
   setCurrentPlayer: (item: PlayerItem | null) => void;
   setCurrentAudio: (item: AudioResult | null) => void;
+  setPlayingAudioId: (id: string | null) => void;
 }
 
 const AppContext = createContext<AppState | null>(null);
@@ -43,10 +46,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [currentPlayer, setCurrentPlayer] = useState<PlayerItem | null>(null);
   const [currentAudio, setCurrentAudio] = useState<AudioResult | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
   const audioListRef = useRef<{ scrollToTop: () => void } | null>(null);
+  const activeAudioElRef = useRef<HTMLAudioElement | null>(null);
 
   const search = useCallback(async (q: string) => {
     if (!q.trim()) return;
+    setCurrentAudio(null);
+    setPlayingAudioId(null);
     setLoading(true);
     setSearchError(null);
     try {
@@ -76,7 +83,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       explanation, relatedTopics,
       loading, budgetWarning, searchError, currentPlayer,
       currentAudio, audioQueue: audio, audioListRef,
-      setQuery, setLanguage, search, setCurrentPlayer, setCurrentAudio,
+      playingAudioId, activeAudioElRef,
+      setQuery, setLanguage, search, setCurrentPlayer, setCurrentAudio, setPlayingAudioId,
     }}>
       {children}
     </AppContext.Provider>

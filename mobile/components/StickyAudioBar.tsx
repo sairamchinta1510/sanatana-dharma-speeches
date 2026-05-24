@@ -4,7 +4,7 @@ import { useApp } from "../context/AppContext";
 import { COLORS } from "../constants/theme";
 
 export function StickyAudioBar() {
-  const { currentAudio, audioQueue, setCurrentAudio } = useApp();
+  const { currentAudio, audioQueue, setCurrentAudio, activeAudioElRef, setPlayingAudioId } = useApp();
 
   if (!currentAudio || Platform.OS !== "web") return null;
 
@@ -15,16 +15,13 @@ export function StickyAudioBar() {
 
   const handleNext = () => {
     if (!nextTrack) return;
-    if (typeof document !== "undefined") {
-      const currentEl = document.querySelector(`audio[src="${currentAudio.audio_url}"]`) as HTMLAudioElement | null;
-      if (currentEl) {
-        currentEl.pause();
-        currentEl.currentTime = 0;
-      }
-      const nextEl = document.querySelector(`audio[src="${nextTrack.audio_url}"]`) as HTMLAudioElement | null;
-      if (nextEl) nextEl.play().catch(() => {});
+    if (activeAudioElRef.current) {
+      activeAudioElRef.current.pause();
+      activeAudioElRef.current.currentTime = 0;
+      activeAudioElRef.current = null;
     }
     setCurrentAudio(nextTrack);
+    setPlayingAudioId(nextTrack.identifier);
   };
 
   return (
@@ -35,17 +32,29 @@ export function StickyAudioBar() {
         <Text style={styles.sub}>{currentAudio.speaker}</Text>
       </View>
       {nextTrack && (
-        <TouchableOpacity style={styles.nextBtn} onPress={handleNext}>
+        <TouchableOpacity
+          style={styles.nextBtn}
+          onPress={handleNext}
+          accessibilityLabel="Next track"
+          accessibilityRole="button"
+        >
           <Text style={styles.nextText}>⏭ Next</Text>
         </TouchableOpacity>
       )}
-      <TouchableOpacity style={styles.closeBtn} onPress={() => {
-        if (typeof document !== "undefined") {
-          const el = document.querySelector(`audio[src="${currentAudio.audio_url}"]`) as HTMLAudioElement | null;
-          if (el) { el.pause(); el.currentTime = 0; }
-        }
-        setCurrentAudio(null);
-      }}>
+      <TouchableOpacity
+        style={styles.closeBtn}
+        onPress={() => {
+          if (activeAudioElRef.current) {
+            activeAudioElRef.current.pause();
+            activeAudioElRef.current.currentTime = 0;
+            activeAudioElRef.current = null;
+          }
+          setCurrentAudio(null);
+          setPlayingAudioId(null);
+        }}
+        accessibilityLabel="Stop and dismiss player"
+        accessibilityRole="button"
+      >
         <Text style={styles.closeText}>✕</Text>
       </TouchableOpacity>
     </View>

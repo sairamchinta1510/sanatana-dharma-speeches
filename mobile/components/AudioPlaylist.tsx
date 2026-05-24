@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet, Platform,
 } from "react-native";
@@ -10,6 +10,7 @@ interface Props { audio: AudioResult[] }
 
 /** Formatted mm:ss from seconds */
 function fmtTime(secs: number): string {
+  if (!isFinite(secs) || isNaN(secs)) return "0:00";
   const m = Math.floor(secs / 60);
   const s = Math.floor(secs % 60);
   return `${m}:${s.toString().padStart(2, "0")}`;
@@ -28,11 +29,9 @@ function AudioRow({ item, isActive, onPlay }: {
   useEffect(() => {
     const el = audioRef.current;
     if (!el) return;
-    if (isActive) {
-      el.play().catch(() => {});
-    } else {
-      el.pause();
-    }
+    if (isActive) { el.play().catch(() => {}); }
+    else { el.pause(); }
+    return () => { el.pause(); };
   }, [isActive]);
 
   const handleTimeUpdate = (e: React.SyntheticEvent<HTMLAudioElement>) => {
@@ -78,7 +77,12 @@ function AudioRow({ item, isActive, onPlay }: {
         style={{ display: "none" }}
       />
 
-      <TouchableOpacity style={[styles.iconBox, isActive && styles.iconBoxActive]} onPress={handleClick}>
+      <TouchableOpacity
+        style={[styles.iconBox, isActive && styles.iconBoxActive]}
+        onPress={handleClick}
+        accessibilityLabel={isActive ? "Pause" : "Play"}
+        accessibilityRole="button"
+      >
         <Text style={styles.icon}>{isActive ? "⏸" : "▶"}</Text>
       </TouchableOpacity>
 
@@ -99,29 +103,28 @@ function AudioRow({ item, isActive, onPlay }: {
 }
 
 export function AudioPlaylist({ audio }: Props) {
-  const { setCurrentAudio } = useApp();
-  const [playingId, setPlayingId] = useState<string | null>(null);
-  const activeAudioRef = useRef<HTMLAudioElement | null>(null);
+  const { setCurrentAudio, playingAudioId, setPlayingAudioId, activeAudioElRef } = useApp();
 
   const play = (item: AudioResult, el: HTMLAudioElement) => {
-    if (playingId === item.identifier) {
-      // Toggle pause
-      el.paused ? el.play() : el.pause();
-      if (!el.paused) {
+    if (playingAudioId === item.identifier) {
+      // Toggle play/pause — do NOT reset currentTime
+      if (el.paused) {
+        el.play().catch(() => {});
         setCurrentAudio(item);
       } else {
+        el.pause();
         setCurrentAudio(null);
-        setPlayingId(null);
+        // Keep playingAudioId — row stays highlighted as paused
       }
       return;
     }
-    // Stop previous
-    if (activeAudioRef.current) {
-      activeAudioRef.current.pause();
-      activeAudioRef.current.currentTime = 0;
+    // New track — stop previous
+    if (activeAudioElRef.current && activeAudioElRef.current !== el) {
+      activeAudioElRef.current.pause();
+      activeAudioElRef.current.currentTime = 0;
     }
-    activeAudioRef.current = el;
-    setPlayingId(item.identifier);
+    activeAudioElRef.current = el;
+    setPlayingAudioId(item.identifier);
     setCurrentAudio(item);
   };
 
@@ -137,7 +140,7 @@ export function AudioPlaylist({ audio }: Props) {
       renderItem={({ item }) => (
         <AudioRow
           item={item}
-          isActive={playingId === item.identifier}
+          isActive={playingAudioId === item.identifier}
           onPlay={play}
         />
       )}

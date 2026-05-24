@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from "react";
 import {
-  View, Text, FlatList, TouchableOpacity, StyleSheet, Platform,
+  View, Text, FlatList, TouchableOpacity, StyleSheet, Platform, Linking,
 } from "react-native";
 import { AudioResult } from "../api/client";
 import { COLORS } from "../constants/theme";
@@ -25,6 +25,7 @@ function AudioRow({ item, isActive, onPlay }: {
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
+  const [audioError, setAudioError] = useState<string | null>(null);
 
   useEffect(() => {
     const el = audioRef.current;
@@ -46,6 +47,7 @@ function AudioRow({ item, isActive, onPlay }: {
   };
 
   const handleClick = () => {
+    setAudioError(null);
     if (audioRef.current) {
       onPlay(item, audioRef.current);
     }
@@ -71,25 +73,41 @@ function AudioRow({ item, isActive, onPlay }: {
       <audio
         ref={audioRef}
         src={item.audio_url}
-        preload="none"
+        preload="metadata"
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
+        onError={() => setAudioError("load-failed")}
         style={{ display: "none" }}
       />
 
-      <TouchableOpacity
-        style={[styles.iconBox, isActive && styles.iconBoxActive]}
-        onPress={handleClick}
-        accessibilityLabel={isActive ? "Pause" : "Play"}
-        accessibilityRole="button"
+      {/* Use native <button> so onClick is a real browser user-gesture (required for play()) */}
+      {/* @ts-ignore */}
+      <button
+        style={{
+          width: 36, height: 28, borderRadius: 4, border: "none", cursor: "pointer",
+          backgroundColor: isActive ? "#C9A84C" : "#1a1a2e",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          flexShrink: 0,
+        }}
+        onClick={handleClick}
+        aria-label={isActive ? "Pause" : "Play"}
       >
-        <Text style={styles.icon}>{isActive ? "⏸" : "▶"}</Text>
-      </TouchableOpacity>
+        <span style={{ fontSize: 12 }}>{isActive ? "⏸" : "▶"}</span>
+      </button>
 
       <View style={styles.info}>
         <Text style={styles.title} numberOfLines={2}>{item.title}</Text>
         <Text style={styles.sub}>{item.speaker} • {item.lang}</Text>
-        {isActive && (
+        {audioError && (
+          <Text style={[styles.sub, { color: "#e74c3c" }]}>
+            ⚠ Audio failed to load.{" "}
+            {/* @ts-ignore */}
+            <a href={item.page_url} target="_blank" rel="noreferrer" style={{ color: "#C9A84C" }}>
+              Open on Archive.org
+            </a>
+          </Text>
+        )}
+        {isActive && !audioError && (
           <View style={styles.progressRow}>
             <View style={styles.progressBg}>
               <View style={[styles.progressFill, { width: `${progress}%` as any }]} />

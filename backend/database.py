@@ -75,4 +75,19 @@ def init_db() -> None:
                 content_rowid='id',
                 tokenize='unicode61'
             );
+            CREATE TRIGGER IF NOT EXISTS local_content_ai
+                AFTER INSERT ON local_content BEGIN
+                INSERT INTO local_content_fts(rowid, content) VALUES (new.id, new.content);
+            END;
+            CREATE TRIGGER IF NOT EXISTS local_content_ad
+                AFTER DELETE ON local_content BEGIN
+                INSERT INTO local_content_fts(local_content_fts, rowid, content)
+                    VALUES('delete', old.id, old.content);
+            END;
+            CREATE TRIGGER IF NOT EXISTS local_content_au
+                AFTER UPDATE ON local_content BEGIN
+                INSERT INTO local_content_fts(local_content_fts, rowid, content)
+                    VALUES('delete', old.id, old.content);
+                INSERT INTO local_content_fts(rowid, content) VALUES (new.id, new.content);
+            END;
         """)

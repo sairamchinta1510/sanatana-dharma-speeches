@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from "react";
+import React, { createContext, useContext, useState, useCallback, useRef } from "react";
 import { api, VideoResult, AudioResult, VyakhanamResult } from "../api/client";
 
 export type Language = "Telugu" | "English" | "Sanskrit" | "Hindi";
@@ -18,10 +18,14 @@ interface AppState {
   budgetWarning: boolean;
   searchError: string | null;
   currentPlayer: PlayerItem | null;
+  currentAudio: AudioResult | null;
+  audioQueue: AudioResult[];
+  audioListRef: React.MutableRefObject<{ scrollToTop: () => void } | null>;
   setQuery: (q: string) => void;
   setLanguage: (l: Language) => void;
   search: (q: string) => Promise<void>;
   setCurrentPlayer: (item: PlayerItem | null) => void;
+  setCurrentAudio: (item: AudioResult | null) => void;
 }
 
 const AppContext = createContext<AppState | null>(null);
@@ -37,7 +41,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [budgetWarning, setBudgetWarning] = useState(false);
   const [currentPlayer, setCurrentPlayer] = useState<PlayerItem | null>(null);
+  const [currentAudio, setCurrentAudio] = useState<AudioResult | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const audioListRef = useRef<{ scrollToTop: () => void } | null>(null);
 
   const search = useCallback(async (q: string) => {
     if (!q.trim()) return;
@@ -47,7 +53,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const [videoRes, audioRes, vyakhanamRes] = await Promise.all([
         api.searchVideos(q, language),
         api.searchAudio(q, language),
-        api.getVyakhanams(q, "Telugu"),  // always Telugu
+        api.getVyakhanams(q, "Telugu"),
       ]);
       setVideos(videoRes.results);
       setAudio(audioRes.results);
@@ -69,7 +75,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       query, language, videos, audio, vyakhanams,
       explanation, relatedTopics,
       loading, budgetWarning, searchError, currentPlayer,
-      setQuery, setLanguage, search, setCurrentPlayer,
+      currentAudio, audioQueue: audio, audioListRef,
+      setQuery, setLanguage, search, setCurrentPlayer, setCurrentAudio,
     }}>
       {children}
     </AppContext.Provider>

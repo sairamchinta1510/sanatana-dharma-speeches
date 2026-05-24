@@ -1,52 +1,128 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
-  View, Text, FlatList, TouchableOpacity, StyleSheet,
+  View, Text, FlatList, TouchableOpacity, StyleSheet, Platform,
 } from "react-native";
-import { Audio } from "expo-av";
 import { AudioResult } from "../api/client";
 import { COLORS } from "../constants/theme";
 import { useApp } from "../context/AppContext";
 
 interface Props { audio: AudioResult[] }
 
-export function AudioPlaylist({ audio }: Props) {
-  const { setCurrentPlayer } = useApp();
-  const [playingId, setPlayingId] = useState<string | null>(null);
-  const soundRef = useRef<Audio.Sound | null>(null);
+/** Formatted mm:ss from seconds */
+function fmtTime(secs: number): string {
+  const m = Math.floor(secs / 60);
+  const s = Math.floor(secs % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
 
-  const play = async (item: AudioResult) => {
-    try {
-      if (soundRef.current) {
-        await soundRef.current.unloadAsync();
-        soundRef.current = null;
-      }
-      await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: item.audio_url },
-        { shouldPlay: true }
-      );
-      soundRef.current = sound;
-      setPlayingId(item.identifier);
-      setCurrentPlayer({ type: "audio", item });
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) {
-          setPlayingId(null);
-          setCurrentPlayer(null);
-        }
-      });
-    } catch (e) {
-      console.error("Audio play failed:", e);
+function AudioRow({ item, isActive, onPlay }: {
+  item: AudioResult;
+  isActive: boolean;
+  onPlay: (item: AudioResult, el: HTMLAudioElement) => void;
+}) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+
+  useEffect(() => {
+    const el = audioRef.current;
+    if (!el) return;
+    if (isActive) {
+      el.play().catch(() => {});
+    } else {
+      el.pause();
+    }
+  }, [isActive]);
+
+  const handleTimeUpdate = (e: React.SyntheticEvent<HTMLAudioElement>) => {
+    const el = e.currentTarget;
+    setCurrentTime(el.currentTime);
+    setDuration(el.duration || 0);
+    setProgress(el.duration ? (el.currentTime / el.duration) * 100 : 0);
+  };
+
+  const handleLoadedMetadata = (e: React.SyntheticEvent<HTMLAudioElement>) => {
+    setDuration(e.currentTarget.duration || 0);
+  };
+
+  const handleClick = () => {
+    if (audioRef.current) {
+      onPlay(item, audioRef.current);
     }
   };
 
-  const stop = async () => {
-    if (soundRef.current) {
-      await soundRef.current.stopAsync();
-      await soundRef.current.unloadAsync();
-      soundRef.current = null;
+  if (Platform.OS !== "web") {
+    // Native stub — audio only works on web
+    return (
+      <View style={styles.row}>
+        <View style={styles.iconBox}><Text style={styles.icon}>🎵</Text></View>
+        <View style={styles.info}>
+          <Text style={styles.title} numberOfLines={2}>{item.title}</Text>
+          <Text style={styles.sub}>{item.speaker} • {item.lang}</Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.row, isActive && styles.rowActive]}>
+      {/* Hidden HTML5 audio element */}
+      {/* @ts-ignore */}
+      <audio
+        ref={audioRef}
+        src={item.audio_url}
+        preload="none"
+        onTimeUpdate={handleTimeUpdate}
+        onLoadedMetadata={handleLoadedMetadata}
+        style={{ display: "none" }}
+      />
+
+      <TouchableOpacity style={[styles.iconBox, isActive && styles.iconBoxActive]} onPress={handleClick}>
+        <Text style={styles.icon}>{isActive ? "⏸" : "▶"}</Text>
+      </TouchableOpacity>
+
+      <View style={styles.info}>
+        <Text style={styles.title} numberOfLines={2}>{item.title}</Text>
+        <Text style={styles.sub}>{item.speaker} • {item.lang}</Text>
+        {isActive && (
+          <View style={styles.progressRow}>
+            <View style={styles.progressBg}>
+              <View style={[styles.progressFill, { width: `${progress}%` as any }]} />
+            </View>
+            <Text style={styles.timeText}>{fmtTime(currentTime)} / {fmtTime(duration)}</Text>
+          </View>
+        )}
+      </View>
+    </View>
+  );
+}
+
+export function AudioPlaylist({ audio }: Props) {
+  const { setCurrentAudio } = useApp();
+  const [playingId, setPlayingId] = useState<string | null>(null);
+  const activeAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  const play = (item: AudioResult, el: HTMLAudioElement) => {
+    if (playingId === item.identifier) {
+      // Toggle pause
+      el.paused ? el.play() : el.pause();
+      if (!el.paused) {
+        setCurrentAudio(item);
+      } else {
+        setCurrentAudio(null);
+        setPlayingId(null);
+      }
+      return;
     }
-    setPlayingId(null);
-    setCurrentPlayer(null);
+    // Stop previous
+    if (activeAudioRef.current) {
+      activeAudioRef.current.pause();
+      activeAudioRef.current.currentTime = 0;
+    }
+    activeAudioRef.current = el;
+    setPlayingId(item.identifier);
+    setCurrentAudio(item);
   };
 
   if (audio.length === 0) {
@@ -58,23 +134,13 @@ export function AudioPlaylist({ audio }: Props) {
       data={audio}
       keyExtractor={(item) => item.identifier}
       scrollEnabled={false}
-      renderItem={({ item }) => {
-        const active = playingId === item.identifier;
-        return (
-          <TouchableOpacity
-            style={[styles.row, active && styles.rowActive]}
-            onPress={() => active ? stop() : play(item)}
-          >
-            <View style={[styles.iconBox, active && styles.iconBoxActive]}>
-              <Text style={styles.icon}>{active ? "⏸" : "🎵"}</Text>
-            </View>
-            <View style={styles.info}>
-              <Text style={styles.title} numberOfLines={2}>{item.title}</Text>
-              <Text style={styles.sub}>{item.speaker} • {item.lang}</Text>
-            </View>
-          </TouchableOpacity>
-        );
-      }}
+      renderItem={({ item }) => (
+        <AudioRow
+          item={item}
+          isActive={playingId === item.identifier}
+          onPlay={play}
+        />
+      )}
     />
   );
 }
@@ -84,7 +150,7 @@ const styles = StyleSheet.create({
   row: {
     backgroundColor: COLORS.bgLight, borderRadius: 8,
     borderWidth: 1, borderColor: COLORS.border,
-    flexDirection: "row", alignItems: "center",
+    flexDirection: "row", alignItems: "flex-start",
     padding: 10, marginBottom: 6, gap: 10,
   },
   rowActive: { borderColor: COLORS.gold + "88", backgroundColor: COLORS.bgLighter },
@@ -98,4 +164,11 @@ const styles = StyleSheet.create({
   info: { flex: 1 },
   title: { color: COLORS.text, fontSize: 12, fontWeight: "600" },
   sub: { color: COLORS.textMuted, fontSize: 10, marginTop: 2 },
+  progressRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 6 },
+  progressBg: {
+    flex: 1, height: 3, backgroundColor: COLORS.border, borderRadius: 2,
+    overflow: "hidden",
+  },
+  progressFill: { height: 3, backgroundColor: COLORS.gold, borderRadius: 2 },
+  timeText: { color: COLORS.textMuted, fontSize: 9, minWidth: 70 },
 });

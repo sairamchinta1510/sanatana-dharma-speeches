@@ -8,8 +8,8 @@ import { LanguageFilter } from "../components/LanguageFilter";
 import { VideoPlaylist } from "../components/VideoPlaylist";
 import { AudioPlaylist } from "../components/AudioPlaylist";
 import { VyakhanamsPanel } from "../components/VyakhanamsPanel";
+import { StickyAudioBar } from "../components/StickyAudioBar";
 import { COLORS } from "../constants/theme";
-
 import { ExplanationPanel } from "../components/ExplanationPanel";
 
 type ResultTab = "video" | "audio";
@@ -22,84 +22,85 @@ export default function HomeScreen() {
   const hasResults = videos.length > 0 || audio.length > 0;
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <View style={styles.hero}>
-        <Text style={styles.subtitle}>EXPLORE DHARMIC KNOWLEDGE</Text>
-        <SearchBar onSearch={search} loading={loading} />
-        <LanguageFilter selected={language} onSelect={setLanguage} />
-      </View>
-
-      {searchError && (
-        <View style={styles.errorBanner}>
-          <Text style={styles.errorText}>⚠️ Search error: {searchError}</Text>
+    <View style={styles.wrapper}>
+      <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+        <View style={styles.hero}>
+          <Text style={styles.subtitle}>EXPLORE DHARMIC KNOWLEDGE</Text>
+          <SearchBar onSearch={search} loading={loading} />
+          <LanguageFilter selected={language} onSelect={setLanguage} />
         </View>
-      )}
 
-      {budgetWarning && (
-        <View style={styles.warningBanner}>
-          <Text style={styles.warningText}>
-            ⚠️ Enhanced search paused — results shown as-is
-          </Text>
-        </View>
-      )}
+        {searchError && (
+          <View style={styles.errorBanner}>
+            <Text style={styles.errorText}>⚠️ Search error: {searchError}</Text>
+          </View>
+        )}
 
-      <ExplanationPanel
-        explanation={explanation}
-        relatedTopics={relatedTopics}
-        onTopicPress={search}
-      />
+        {budgetWarning && (
+          <View style={styles.warningBanner}>
+            <Text style={styles.warningText}>
+              ⚠️ Enhanced search paused — results shown as-is
+            </Text>
+          </View>
+        )}
 
-      {hasResults && (
-        <>
-          {/* ── Section 1: Videos & Audio ── */}
-          <View style={styles.sectionBox}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionLabel}>🎬 Videos &amp; Audio</Text>
-              <View style={styles.tabs}>
-                <TouchableOpacity
-                  style={[styles.tab, tab === "video" && styles.tabActive]}
-                  onPress={() => setTab("video")}
-                >
-                  <Text style={[styles.tabText, tab === "video" && styles.tabTextActive]}>
-                    ▶ Videos ({videos.length})
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.tab, tab === "audio" && styles.tabActive]}
-                  onPress={() => setTab("audio")}
-                >
-                  <Text style={[styles.tabText, tab === "audio" && styles.tabTextActive]}>
-                    🎵 Audio ({audio.length})
-                  </Text>
-                </TouchableOpacity>
+        <ExplanationPanel
+          explanation={explanation}
+          relatedTopics={relatedTopics}
+          onTopicPress={search}
+        />
+
+        {hasResults && (
+          <>
+            <View style={styles.sectionBox}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionLabel}>🎬 Videos &amp; Audio</Text>
+                <View style={styles.tabs}>
+                  <TouchableOpacity
+                    style={[styles.tab, tab === "video" && styles.tabActive]}
+                    onPress={() => setTab("video")}
+                  >
+                    <Text style={[styles.tabText, tab === "video" && styles.tabTextActive]}>
+                      ▶ Videos ({videos.length})
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.tab, tab === "audio" && styles.tabActive]}
+                    onPress={() => setTab("audio")}
+                  >
+                    <Text style={[styles.tabText, tab === "audio" && styles.tabTextActive]}>
+                      🎵 Audio ({audio.length})
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+              <View style={styles.playlistArea}>
+                {tab === "video" ? (
+                  <VideoPlaylist videos={videos} />
+                ) : (
+                  <AudioPlaylist audio={audio} />
+                )}
               </View>
             </View>
-            <View style={styles.playlistArea}>
-              {tab === "video" ? (
-                <VideoPlaylist videos={videos} />
-              ) : (
-                <AudioPlaylist audio={audio} />
-              )}
+
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerSymbol}>✦ ✦ ✦</Text>
+              <View style={styles.dividerLine} />
             </View>
-          </View>
 
-          {/* ── Decorative Divider ── */}
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerSymbol}>✦ ✦ ✦</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          {/* ── Section 2: Vyakhanams ── */}
-          <VyakhanamsPanel vyakhanams={vyakhanams} />
-        </>
-      )}
-    </ScrollView>
+            <VyakhanamsPanel vyakhanams={vyakhanams} />
+          </>
+        )}
+      </ScrollView>
+      <StickyAudioBar />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: COLORS.bg },
+  wrapper: { flex: 1, backgroundColor: COLORS.bg },
+  screen: { flex: 1 },
   content: { paddingBottom: 120 },
   hero: { paddingTop: 16 },
   subtitle: {

@@ -40,7 +40,7 @@ def search(
 
     parsed = llm_svc.parse_query(q, lang=lang)
     if parsed:
-        terms = llm_svc.generate_search_terms(parsed)
+        terms = [q] + llm_svc.generate_search_terms(parsed)
     else:
         terms = [q]
 

@@ -27,7 +27,7 @@ def test_search_returns_normalized_results(svc):
     with patch("requests.get", return_value=_mock_response([doc])):
         results = svc.search(["Siva Tatvam Telugu audio"], lang="Telugu")
     assert len(results) == 1
-    assert results[0]["audio_url"].startswith("https://archive.org/download/")
+    assert results[0]["audio_url"].startswith("https://api.find.sanatanadharmas.com/api/audio-proxy?url=")
     assert results[0]["speaker"] == "Chaganti"
 
 

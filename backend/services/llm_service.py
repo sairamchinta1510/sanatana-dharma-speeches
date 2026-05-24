@@ -172,7 +172,7 @@ class LLMService:
     def _call_haiku(self, prompt: str) -> str:
         body = json.dumps({
             "anthropic_version": "bedrock-2023-05-31",
-            "max_tokens": 1024,
+            "max_tokens": 2048,
             "messages": [{"role": "user", "content": prompt}],
         })
         resp = self._client.invoke_model(modelId=HAIKU_MODEL, body=body)
@@ -339,14 +339,20 @@ class LLMService:
             logger.warning("LLM budget exceeded — skipping explain_topic")
             return None
         prompt = (
-            f"You are a Sanatan Dharma scholar. "
-            f"Explain the topic \"{parsed.topic}\" in 2-3 clear sentences suitable for a devotee. "
-            f"Then suggest exactly 3 related topics they might want to explore next.\n\n"
-            f"Return ONLY valid JSON with keys: explanation (string), related_topics (array of 3 strings).\n"
-            f'Example: {{"explanation": "Siva Tatvam refers to...", "related_topics": ["Panchakshara", "Rudram", "Shiva Purana"]}}'
+            f"You are an expert Sanatan Dharma scholar writing for devoted seekers. "
+            f"Give a thorough explanation of \"{parsed.topic}\" covering:\n"
+            f"1. What it is — origin, scripture or tradition it belongs to\n"
+            f"2. Core teachings or philosophical significance\n"
+            f"3. Key concepts, stories, or verses associated with it\n"
+            f"4. Practical relevance for a devotee's daily life or spiritual practice\n\n"
+            f"Write in flowing prose (not bullet points), 5-8 sentences, accessible to a sincere devotee. "
+            f"Also suggest exactly 5 related topics for further exploration.\n\n"
+            f"Return ONLY valid JSON with keys: explanation (string), related_topics (array of 5 strings).\n"
+            f'Example: {{"explanation": "Siva Tatvam refers to the divine principle of Lord Shiva...", '
+            f'"related_topics": ["Panchakshara Mantra", "Rudrashtadhyayi", "Shiva Purana", "Nataraja", "Lingashtakam"]}}'
         )
         try:
-            text = self._call_llama(prompt)
+            text = self._call_haiku(prompt)
             data = self._parse_json(text)
             return {
                 "explanation": data.get("explanation", ""),

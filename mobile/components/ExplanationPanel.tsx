@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
   title: { color: COLORS.gold, fontSize: 12, fontWeight: "700" },
   toggle: { color: COLORS.textMuted, fontSize: 11 },
   body: { padding: 14 },
-  explanation: { color: COLORS.text, fontSize: 13, lineHeight: 20 },
+  explanation: { color: COLORS.text, fontSize: 13, lineHeight: 22 },
   relatedRow: { marginTop: 10, flexDirection: "row", alignItems: "center", gap: 8 },
   relatedLabel: { color: COLORS.textMuted, fontSize: 11 },
   chip: {

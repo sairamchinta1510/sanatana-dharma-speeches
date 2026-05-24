@@ -31,10 +31,13 @@ class ArchiveService:
                 resp = requests.get(
                     ARCHIVE_SEARCH_URL,
                     params={
-                        "q": f"({term}) AND mediatype:audio",
+                        # downloads:[50 TO *] filters out private/restricted items;
+                        # sort by downloads ensures popular public items come first.
+                        "q": f"({term}) AND mediatype:audio AND downloads:[50 TO *]",
                         "fl[]": ["identifier", "title", "creator", "description", "avg_rating"],
                         "output": "json",
                         "rows": max_results,
+                        "sort[]": "downloads desc",
                     },
                     timeout=10,
                 )

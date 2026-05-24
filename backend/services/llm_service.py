@@ -19,34 +19,40 @@ _WIKI_HEADERS = {"User-Agent": "SanatanaDharmaSpeeches/1.0 (educational research
 _WIKI_API = "https://te.wikipedia.org/w/api.php"
 
 
+def _wiki_get(params: dict) -> dict:
+    """GET from Telugu Wikipedia, always decoding response as UTF-8."""
+    resp = requests.get(_WIKI_API, params=params, headers=_WIKI_HEADERS, timeout=8)
+    return json.loads(resp.content.decode("utf-8"))
+
+
 def _fetch_wikipedia_telugu(query: str, telugu_query: str) -> list[dict]:
     """Search Telugu Wikipedia and return top result as a vyakhanam entry."""
     try:
         # Search Telugu Wikipedia
-        search = requests.get(_WIKI_API, params={
+        search = _wiki_get({
             "action": "query", "list": "search",
             "srsearch": telugu_query or query,
             "srnamespace": "0", "srlimit": "1", "format": "json",
-        }, headers=_WIKI_HEADERS, timeout=8).json()
+        })
         results = search.get("query", {}).get("search", [])
         if not results:
             # Fallback: search in English
-            search = requests.get(_WIKI_API, params={
+            search = _wiki_get({
                 "action": "query", "list": "search",
                 "srsearch": query, "srnamespace": "0",
                 "srlimit": "1", "format": "json",
-            }, headers=_WIKI_HEADERS, timeout=8).json()
+            })
             results = search.get("query", {}).get("search", [])
         if not results:
             return []
 
         title = results[0]["title"]
         # Fetch intro extract
-        extract_resp = requests.get(_WIKI_API, params={
+        extract_resp = _wiki_get({
             "action": "query", "titles": title,
             "prop": "extracts", "exintro": "true",
             "exsentences": "5", "format": "json",
-        }, headers=_WIKI_HEADERS, timeout=8).json()
+        })
         pages = extract_resp.get("query", {}).get("pages", {})
         page = next(iter(pages.values()))
         raw_html = page.get("extract", "")

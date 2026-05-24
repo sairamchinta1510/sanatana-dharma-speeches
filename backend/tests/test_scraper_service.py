@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from services.scraper_service import ScraperService, _telugu_ratio
+from services.scraper_service import ScraperService, _telugu_ratio, SOURCES
 
 
 @pytest.fixture
@@ -63,7 +63,7 @@ def test_respects_rate_limit(svc):
     with patch("requests.get", return_value=html):
         with patch("time.sleep") as mock_sleep:
             svc.scrape("test", lang="Telugu")
-    mock_sleep.assert_called()
+    assert mock_sleep.call_count == len(SOURCES)
 
 
 def test_failed_request_skipped(svc):
@@ -78,9 +78,8 @@ def test_english_only_paragraphs_filtered_out(svc):
     with patch("requests.get", return_value=html):
         with patch("time.sleep"):
             results = svc.scrape("Siva Tatvam", lang="Telugu")
-    # Results may be returned but text should not contain the English paragraph
-    for r in results:
-        assert "This is completely English" not in r.get("text", "")
+    # All paragraphs fail the Telugu ratio threshold, so no results
+    assert results == []
 
 
 def test_sources_are_authentic_telugu_sites(svc):
@@ -88,5 +87,6 @@ def test_sources_are_authentic_telugu_sites(svc):
     affiliations = {s["affiliation"] for s in SOURCES}
     assert "chaganti.net" in affiliations
     assert "samavedam.org" in affiliations
+    assert "chinnajeeyar.org" in affiliations
     # speakingtree.in (English site) must be gone
     assert "speakingtree.in" not in affiliations

@@ -47,28 +47,29 @@ class ScraperService:
     def scrape(self, query: str, lang: str, min_text_len: int = 80) -> list[dict]:
         results = []
         for source in SOURCES:
-            time.sleep(1)
+            time.sleep(1)  # respectful rate limiting
             url = source["url_template"].format(query=requests.utils.quote(query))
             try:
-                resp = requests.get(url, headers=HEADERS, timeout=10)
-                resp.raise_for_status()
-                soup = BeautifulSoup(resp.text, "html.parser")
-                paragraphs = [
-                    p.get_text(strip=True)
-                    for p in soup.select(source["content_selector"])
-                    if len(p.get_text(strip=True)) > min_text_len
-                    and _telugu_ratio(p.get_text(strip=True)) >= source["min_telugu_ratio"]
-                ]
-                if not paragraphs:
-                    continue
-                results.append({
-                    "scholar": source["scholar"],
-                    "affiliation": source["affiliation"],
-                    "source_url": url,
-                    "lang": source["lang"],
-                    "text": " ".join(paragraphs[:3]),
-                    "highlight": None,
-                })
+               resp = requests.get(url, headers=HEADERS, timeout=10)
+               resp.raise_for_status()
+               soup = BeautifulSoup(resp.text, "html.parser")
+               paragraphs = [
+                   text
+                   for p in soup.select(source["content_selector"])
+                   if (text := p.get_text(strip=True))
+                   and len(text) > min_text_len
+                   and _telugu_ratio(text) >= source.get("min_telugu_ratio", 0.0)
+               ]
+               if not paragraphs:
+                   continue
+               results.append({
+                   "scholar": source["scholar"],
+                   "affiliation": source["affiliation"],
+                   "source_url": url,
+                   "lang": source["lang"],
+                   "text": " ".join(paragraphs[:3]),
+                   "highlight": None,  # filled by LLMService.highlight_vyakhanams
+               })
             except Exception as e:
-                logger.error(f"Scrape failed for {source['scholar']}: {e}")
+               logger.error(f"Scrape failed for {source['scholar']}: {e}")
         return results

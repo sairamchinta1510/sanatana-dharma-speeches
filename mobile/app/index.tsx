@@ -5,8 +5,8 @@ import {
 import { useApp } from "../context/AppContext";
 import { SearchBar } from "../components/SearchBar";
 import { LanguageFilter } from "../components/LanguageFilter";
-import { VideoPlaylist } from "../components/VideoPlaylist";
-import { AudioPlaylist } from "../components/AudioPlaylist";
+import { GroupedVideoList } from "../components/GroupedVideoList";
+import { GroupedAudioList } from "../components/GroupedAudioList";
 import { VyakhanamsPanel } from "../components/VyakhanamsPanel";
 import { StickyAudioBar } from "../components/StickyAudioBar";
 import { COLORS } from "../constants/theme";
@@ -76,9 +76,9 @@ export default function HomeScreen() {
               </View>
               <View style={styles.playlistArea}>
                 {tab === "video" ? (
-                  <VideoPlaylist videos={videos} />
+                  <GroupedVideoList videos={videos} />
                 ) : (
-                  <AudioPlaylist audio={audio} />
+                  <GroupedAudioList audio={audio} />
                 )}
               </View>
             </View>

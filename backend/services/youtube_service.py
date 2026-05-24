@@ -28,6 +28,8 @@ class YouTubeService:
         if not terms:
             return []
         topic = terms[0]
+        if len(terms) > 1:
+            logger.warning("YouTubeService.search() only uses terms[0]; extra terms ignored: %s", terms[1:])
         relevance_lang = LANG_CODE.get(lang, "te")
         seen: set[str] = set()
         results: list[dict] = []
@@ -64,15 +66,20 @@ class YouTubeService:
             except Exception as e:
                 logger.error(f"YouTube search failed for query '{query}': {e}")
 
-        return self._filter_by_topic(results, topic)
+        return self._filter_by_topic(results, topic)[:max_results]
 
-    def _extract_keywords(self, topic: str) -> list[str]:
-        words = topic.lower().split()
-        return [w.strip(".,!?()") for w in words
-                if w.strip(".,!?()") not in _STOP_WORDS and len(w.strip(".,!?()")) > 1]
+    @staticmethod
+    def _extract_keywords(topic: str) -> list[str]:
+        result = []
+        for w in topic.lower().split():
+            cleaned = w.strip(".,!?()")
+            if cleaned not in _STOP_WORDS and len(cleaned) > 1:
+                result.append(cleaned)
+        return result
 
-    def _filter_by_topic(self, results: list[dict], topic: str) -> list[dict]:
-        keywords = self._extract_keywords(topic)
+    @staticmethod
+    def _filter_by_topic(results: list[dict], topic: str) -> list[dict]:
+        keywords = YouTubeService._extract_keywords(topic)
         if not keywords:
             return results
         threshold = max(1, len(keywords) // 3)

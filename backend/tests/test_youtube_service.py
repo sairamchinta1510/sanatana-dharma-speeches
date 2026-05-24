@@ -1,6 +1,6 @@
 import pytest
 import os
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock
 
 os.environ.setdefault("YOUTUBE_API_KEY", "test-key")
 
@@ -79,6 +79,7 @@ def test_scholar_queries_include_topic(svc, mock_youtube_build):
 
     mock_youtube_build.search().list.side_effect = capture
     svc.search(["Bhagavad Gita"], lang="Telugu")
+    assert len(captured_queries) == len(SCHOLAR_QUERIES)
     for q in captured_queries:
         assert "Bhagavad Gita" in q
 
@@ -101,3 +102,9 @@ def test_title_filter_falls_back_when_all_filtered(svc, mock_youtube_build):
     ])
     results = svc.search(["xyzzy unique nonce"], lang="Telugu")
     assert len(results) == 1
+
+
+def test_search_empty_terms_returns_empty(svc, mock_youtube_build):
+    results = svc.search([], lang="Telugu")
+    assert results == []
+    mock_youtube_build.search().list().execute.assert_not_called()

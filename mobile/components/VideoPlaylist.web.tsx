@@ -1,55 +1,96 @@
 import React, { useState } from "react";
 import { View, Text, FlatList, TouchableOpacity, StyleSheet } from "react-native";
-import { VideoResult } from "../api/client";
+import { VideoResult, SeriesResult } from "../api/client";
+import { SeriesCard } from "./SeriesCard";
 import { COLORS } from "../constants/theme";
-import { useApp } from "../context/AppContext";
 
 interface Props { videos: VideoResult[] }
 
-export function VideoPlaylist({ videos }: Props) {
-  const { setCurrentPlayer } = useApp();
-  const [playingId, setPlayingId] = useState<string | null>(null);
+/** Group videos by speaker. Groups of 3+ → SeriesResult. Fewer → flat VideoResult rows. */
+function groupVideos(videos: VideoResult[]): (VideoResult | SeriesResult)[] {
+  const byChannel = new Map<string, VideoResult[]>();
+  for (const v of videos) {
+    const group = byChannel.get(v.speaker) ?? [];
+    group.push(v);
+    byChannel.set(v.speaker, group);
+  }
 
-  const play = (item: VideoResult) => {
-    setPlayingId(item.video_id);
-    setCurrentPlayer({ type: "video", item });
-  };
+  const items: (VideoResult | SeriesResult)[] = [];
+  for (const [speaker, group] of byChannel) {
+    if (group.length >= 3) {
+      // Infer series title from first 4 words of first video title
+      const firstWords = group[0].title.split(" ").slice(0, 4).join(" ");
+      const seriesTitle = firstWords || group[0].title;
+
+      items.push({
+        type: "series",
+        speaker,
+        series_title: seriesTitle,
+        episode_count: group.length,
+        episodes: group.slice(0, 20).map((v) => ({
+          video_id: v.video_id,
+          title: v.title,
+          thumbnail: v.thumbnail,
+        })),
+        lang: group[0].lang,
+      });
+    } else {
+      items.push(...group);
+    }
+  }
+  return items;
+}
+
+export function VideoPlaylist({ videos }: Props) {
+  const [playingId, setPlayingId] = useState<string | null>(null);
 
   if (videos.length === 0) {
     return <Text style={styles.empty}>No videos found</Text>;
   }
 
+  const items = groupVideos(videos);
+
   return (
     <FlatList
-      data={videos}
-      keyExtractor={(item) => item.video_id}
+      data={items}
+      keyExtractor={(item) =>
+        "type" in item ? `series-${item.speaker}` : item.video_id
+      }
       scrollEnabled={false}
-      renderItem={({ item }) => (
-        <View style={[styles.row, playingId === item.video_id && styles.rowActive]}>
-          {playingId === item.video_id && (
-            <iframe
-              width="100%"
-              height="200"
-              src={`https://www.youtube.com/embed/${item.video_id}?autoplay=1`}
-              allow="autoplay; encrypted-media"
-              allowFullScreen
-              style={{ border: "none", borderRadius: 6 } as React.CSSProperties}
-            />
-          )}
-          <TouchableOpacity style={styles.meta} onPress={() => play(item)}>
-            <View style={styles.playBtn}>
-              <Text style={styles.playIcon}>▶</Text>
-            </View>
-            <View style={styles.info}>
-              <Text style={styles.title} numberOfLines={2}>{item.title}</Text>
-              <Text style={styles.sub}>{item.speaker} • {item.lang}</Text>
-            </View>
-            {playingId === item.video_id && (
-              <View style={styles.badge}><Text style={styles.badgeText}>Playing</Text></View>
+      renderItem={({ item }) => {
+        if ("type" in item) {
+          return <SeriesCard series={item} />;
+        }
+        // Flat single-video row
+        const active = playingId === item.video_id;
+        return (
+          <View style={[styles.row, active && styles.rowActive]}>
+            {active && (
+              // @ts-ignore
+              <iframe
+                width="100%"
+                height="200"
+                src={`https://www.youtube.com/embed/${item.video_id}?autoplay=1`}
+                allow="autoplay; encrypted-media"
+                allowFullScreen
+                style={{ border: "none", borderRadius: 0 } as React.CSSProperties}
+              />
             )}
-          </TouchableOpacity>
-        </View>
-      )}
+            <TouchableOpacity style={styles.meta} onPress={() => setPlayingId(active ? null : item.video_id)}>
+              <View style={styles.playBtn}>
+                <Text style={styles.playIcon}>{active ? "⏸" : "▶"}</Text>
+              </View>
+              <View style={styles.info}>
+                <Text style={styles.title} numberOfLines={2}>{item.title}</Text>
+                <Text style={styles.sub}>{item.speaker} • {item.lang}</Text>
+              </View>
+              {active && (
+                <View style={styles.badge}><Text style={styles.badgeText}>Playing</Text></View>
+              )}
+            </TouchableOpacity>
+          </View>
+        );
+      }}
     />
   );
 }

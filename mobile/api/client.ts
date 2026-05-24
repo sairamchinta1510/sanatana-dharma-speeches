@@ -14,6 +14,21 @@ export interface VideoResult {
   lang: string;
 }
 
+export interface SeriesEpisode {
+  video_id: string;
+  title: string;
+  thumbnail: string;
+}
+
+export interface SeriesResult {
+  type: "series";
+  speaker: string;
+  series_title: string;
+  episode_count: number;
+  episodes: SeriesEpisode[];
+  lang: string;
+}
+
 export interface AudioResult {
   identifier: string;
   title: string;

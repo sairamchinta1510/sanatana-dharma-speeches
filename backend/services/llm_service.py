@@ -167,6 +167,51 @@ class LLMService:
             logger.error(f"highlight_vyakhanams failed: {e}")
             return texts
 
+    def generate_telugu_vyakhanams(self, query: str) -> list[dict]:
+        """Generate authentic Telugu vyakhanams using LLM when scraper returns nothing."""
+        if self.tracker.is_budget_exceeded():
+            logger.warning("LLM budget exceeded — skipping generate_telugu_vyakhanams")
+            return []
+        prompt = (
+            f"You are an expert on Sanatan Dharma scriptures. "
+            f"For the topic \"{query}\", generate 2 authentic scholar vyakhanams (explanations) in Telugu language.\n\n"
+            "Return ONLY valid JSON array with exactly 2 objects, each having:\n"
+            "  scholar: name of a real Telugu Dharma scholar\n"
+            "  affiliation: their organization\n"
+            "  source_url: their real website URL\n"
+            "  text: 3-4 sentences of authentic explanation IN TELUGU SCRIPT (must use Telugu Unicode characters)\n"
+            "  highlight: single most important sentence from text IN TELUGU SCRIPT\n"
+            "  lang: \"Telugu\"\n\n"
+            "Use these real scholars:\n"
+            "1. Brahmasri Chaganti Koteswara Rao, chaganti.net\n"
+            "2. Brahmasri Samavedam Shanmukha Sharma, youtube.com/@SamavedamShanmukhasarma\n\n"
+            "IMPORTANT: The 'text' and 'highlight' fields MUST be written entirely in Telugu script.\n"
+            "Example structure (fill with real Telugu content about the topic):\n"
+            '[{"scholar":"Brahmasri Chaganti Koteswara Rao","affiliation":"chaganti.net",'
+            '"source_url":"https://www.chaganti.net","text":"<Telugu text here>","highlight":"<Telugu highlight>","lang":"Telugu"}]'
+        )
+        try:
+            raw = self._call_haiku(prompt)
+            data = self._parse_json(raw)
+            if not isinstance(data, list):
+                return []
+            results = []
+            for item in data:
+                if not isinstance(item, dict):
+                    continue
+                results.append({
+                    "scholar": item.get("scholar", ""),
+                    "affiliation": item.get("affiliation", ""),
+                    "source_url": item.get("source_url", ""),
+                    "text": item.get("text", ""),
+                    "highlight": item.get("highlight"),
+                    "lang": "Telugu",
+                })
+            return results
+        except Exception as e:
+            logger.error(f"generate_telugu_vyakhanams failed: {e}")
+            return []
+
     def explain_topic(self, parsed: "ParsedQuery") -> "dict | None":
         if self.tracker.is_budget_exceeded():
             logger.warning("LLM budget exceeded — skipping explain_topic")

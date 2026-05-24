@@ -28,7 +28,14 @@ def vyakhanams(
 
     raw = scraper_svc.scrape(q, lang="Telugu")
     parsed = llm_svc.parse_query(q, lang="Telugu")
-    results = llm_svc.highlight_vyakhanams(raw, parsed) if parsed and raw else raw
+
+    if raw:
+        results = llm_svc.highlight_vyakhanams(raw, parsed) if parsed else raw
+    else:
+        # Scraper blocked/unavailable — generate authentic Telugu text via LLM
+        logger.info("Scraper returned no results for '%s' — using LLM generation", q)
+        results = llm_svc.generate_telugu_vyakhanams(q)
+
     cache_svc.set("vyakhanam", q, cache_key_lang, results)
 
     return {"results": results, "from_cache": False}

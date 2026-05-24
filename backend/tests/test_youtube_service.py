@@ -62,10 +62,11 @@ def test_empty_api_key_raises(monkeypatch):
         YouTubeService()
 
 
-def test_uses_one_query_per_scholar(svc, mock_youtube_build):
+def test_uses_one_query_per_scholar_plus_baseline(svc, mock_youtube_build):
     mock_youtube_build.search().list().execute.return_value = _make_yt_response([])
     svc.search(["Rama Nama"], lang="Telugu")
-    assert mock_youtube_build.search().list().execute.call_count == len(SCHOLAR_QUERIES)
+    # 5 scholar queries + 1 baseline = 6 total for a single term
+    assert mock_youtube_build.search().list().execute.call_count == len(SCHOLAR_QUERIES) + 1
 
 
 def test_scholar_queries_include_topic(svc, mock_youtube_build):
@@ -79,7 +80,8 @@ def test_scholar_queries_include_topic(svc, mock_youtube_build):
 
     mock_youtube_build.search().list.side_effect = capture
     svc.search(["Bhagavad Gita"], lang="Telugu")
-    assert len(captured_queries) == len(SCHOLAR_QUERIES)
+    # 5 scholar + 1 baseline
+    assert len(captured_queries) == len(SCHOLAR_QUERIES) + 1
     for q in captured_queries:
         assert "Bhagavad Gita" in q
 
@@ -108,3 +110,29 @@ def test_search_empty_terms_returns_empty(svc, mock_youtube_build):
     results = svc.search([], lang="Telugu")
     assert results == []
     mock_youtube_build.search().list().execute.assert_not_called()
+
+
+def test_uses_second_term_when_provided(svc, mock_youtube_build):
+    mock_youtube_build.search().list().execute.return_value = _make_yt_response([])
+    svc.search(["Bhagavad Gita", "Karma Yoga Telugu"], lang="Telugu")
+    # 5 scholars × 2 terms + 1 baseline = 11
+    assert mock_youtube_build.search().list().execute.call_count == 2 * len(SCHOLAR_QUERIES) + 1
+
+
+def test_baseline_query_does_not_use_scholar_suffix(svc, mock_youtube_build):
+    captured_queries = []
+
+    def capture(*args, **kwargs):
+        captured_queries.append(kwargs.get("q", ""))
+        m = MagicMock()
+        m.execute.return_value = _make_yt_response([])
+        return m
+
+    mock_youtube_build.search().list.side_effect = capture
+    svc.search(["Siva Tatvam"], lang="Telugu")
+    # Last query should be the baseline (no scholar suffix like "Chaganti" etc.)
+    baseline_q = captured_queries[-1]
+    assert "Telugu pravachanam" in baseline_q
+    # Should NOT contain a scholar name suffix
+    scholar_names = ["Chaganti", "Garikipati", "Samavedam", "ISKCON", "Bhakthi TV"]
+    assert not any(name in baseline_q for name in scholar_names)

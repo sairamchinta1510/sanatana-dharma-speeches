@@ -24,18 +24,26 @@ class YouTubeService:
             raise ValueError("YOUTUBE_API_KEY environment variable not set")
         self._yt = build("youtube", "v3", developerKey=api_key)
 
-    def search(self, terms: list[str], lang: str, max_results: int = 10) -> list[dict]:
+    def search(self, terms: list[str], lang: str, max_results: int = 15) -> list[dict]:
         if not terms:
             return []
-        topic = terms[0]
-        if len(terms) > 1:
-            logger.warning("YouTubeService.search() only uses terms[0]; extra terms ignored: %s", terms[1:])
+        primary = terms[0] if isinstance(terms[0], str) else str(terms[0])
+        secondary = terms[1] if len(terms) > 1 and isinstance(terms[1], str) else None
+
         relevance_lang = LANG_CODE.get(lang, "te")
         seen: set[str] = set()
         results: list[dict] = []
 
-        for suffix in SCHOLAR_QUERIES:
-            query = f"{topic} {suffix}"
+        # Build query list: scholar-suffixed queries for primary (and secondary if present)
+        query_topics = [primary] + ([secondary] if secondary else [])
+        queries: list[str] = []
+        for topic in query_topics:
+            for suffix in SCHOLAR_QUERIES:
+                queries.append(f"{topic} {suffix}")
+        # Baseline: primary topic with generic Telugu suffix (no scholar bias)
+        queries.append(f"{primary} Telugu pravachanam")
+
+        for query in queries:
             try:
                 resp = (
                     self._yt.search()
@@ -66,7 +74,7 @@ class YouTubeService:
             except Exception as e:
                 logger.error(f"YouTube search failed for query '{query}': {e}")
 
-        return self._filter_by_topic(results, topic)[:max_results]
+        return self._filter_by_topic(results, primary)[:max_results]
 
     @staticmethod
     def _extract_keywords(topic: str) -> list[str]:
@@ -84,7 +92,7 @@ class YouTubeService:
         keywords = YouTubeService._extract_keywords(topic)
         if not keywords:
             return results
-        threshold = max(1, len(keywords) // 3)
+        threshold = max(1, len(keywords) // 4)
 
         def passes(r: dict) -> bool:
             text = (r.get("title", "") + " " + r.get("description", "")).lower()

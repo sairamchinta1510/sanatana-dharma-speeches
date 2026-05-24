@@ -185,7 +185,18 @@ class LLMService:
         )
         try:
             text = self._call_llama(prompt)
-            return self._parse_json(text)
+            raw = self._parse_json(text)
+            # Flatten any nested lists and keep only strings
+            if isinstance(raw, list):
+                flat = []
+                for item in raw:
+                    if isinstance(item, str):
+                        flat.append(item)
+                    elif isinstance(item, list):
+                        flat.extend(s for s in item if isinstance(s, str))
+                if flat:
+                    return flat
+            return [parsed.topic]
         except Exception as e:
             logger.error(f"generate_search_terms failed: {e}")
             return parsed.keywords[:3]

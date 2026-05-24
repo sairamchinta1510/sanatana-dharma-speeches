@@ -70,6 +70,8 @@ class YouTubeService:
 
     @staticmethod
     def _extract_keywords(topic: str) -> list[str]:
+        if not isinstance(topic, str):
+            topic = " ".join(topic) if isinstance(topic, list) else str(topic)
         result = []
         for w in topic.lower().split():
             cleaned = w.strip(".,!?()")

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { View, Text, FlatList, TouchableOpacity, StyleSheet } from "react-native";
 import { VideoResult, SeriesResult } from "../api/client";
 import { SeriesCard } from "./SeriesCard";
@@ -22,16 +22,18 @@ function groupVideos(videos: VideoResult[]): (VideoResult | SeriesResult)[] {
       const firstWords = group[0].title.split(" ").slice(0, 4).join(" ");
       const seriesTitle = firstWords || group[0].title;
 
+      const episodes = group.slice(0, 20).map((v) => ({
+        video_id: v.video_id,
+        title: v.title,
+        thumbnail: v.thumbnail,
+      }));
+
       items.push({
         type: "series",
         speaker,
         series_title: seriesTitle,
-        episode_count: group.length,
-        episodes: group.slice(0, 20).map((v) => ({
-          video_id: v.video_id,
-          title: v.title,
-          thumbnail: v.thumbnail,
-        })),
+        episode_count: episodes.length,
+        episodes,
         lang: group[0].lang,
       });
     } else {
@@ -44,11 +46,15 @@ function groupVideos(videos: VideoResult[]): (VideoResult | SeriesResult)[] {
 export function VideoPlaylist({ videos }: Props) {
   const [playingId, setPlayingId] = useState<string | null>(null);
 
+  useEffect(() => {
+    setPlayingId(null);
+  }, [videos]);
+
   if (videos.length === 0) {
     return <Text style={styles.empty}>No videos found</Text>;
   }
 
-  const items = groupVideos(videos);
+  const items = useMemo(() => groupVideos(videos), [videos]);
 
   return (
     <FlatList
@@ -66,8 +72,9 @@ export function VideoPlaylist({ videos }: Props) {
         return (
           <View style={[styles.row, active && styles.rowActive]}>
             {active && (
-              // @ts-ignore
+              // @ts-expect-error — iframe not in RN types but works on web
               <iframe
+                title="YouTube video player"
                 width="100%"
                 height="200"
                 src={`https://www.youtube.com/embed/${item.video_id}?autoplay=1`}

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
 } from "react-native";
@@ -9,6 +9,10 @@ interface Props { series: SeriesResult }
 
 export function SeriesCard({ series }: Props) {
   const [activeId, setActiveId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setActiveId(null);
+  }, [series.speaker, series.series_title]);
 
   const playingEpisode = series.episodes.find((e) => e.video_id === activeId);
 
@@ -25,9 +29,10 @@ export function SeriesCard({ series }: Props) {
 
       {/* Inline player — shown when an episode is selected */}
       {activeId && (
-        // @ts-ignore — iframe is not in RN types but works on web
+        // @ts-expect-error — iframe not in RN types but works on web
         <iframe
           key={activeId}
+          title="YouTube video player"
           width="100%"
           height="200"
           src={`https://www.youtube.com/embed/${activeId}?autoplay=1`}

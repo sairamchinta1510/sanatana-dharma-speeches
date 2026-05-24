@@ -48,7 +48,9 @@ def search(
         raw = yt_svc.search(terms, lang=lang)
     else:
         # Skip non-string/non-ASCII-only terms (Telugu script won't match archive.org metadata)
-        ascii_terms = [t for t in terms if isinstance(t, str) and any(c.isascii() and c.isalpha() for c in t)]
+        # Cap to 2 terms max — archive.org searches are sequential HTTP calls (10s each);
+        # more than 2 terms risks a 504 timeout via CloudFront.
+        ascii_terms = [t for t in terms if isinstance(t, str) and any(c.isascii() and c.isalpha() for c in t)][:2]
         if not ascii_terms:
             ascii_terms = [q]
         raw = archive_svc.search(ascii_terms, lang=lang)

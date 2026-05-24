@@ -6,10 +6,15 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 logger = logging.getLogger(__name__)
 ARCHIVE_SEARCH_URL = "https://archive.org/advancedsearch.php"
 _AUDIO_FORMATS = {"mp3", "vbr mp3", "128kbps mp3", "64kbps mp3", "ogg vorbis"}
+API_BASE = "https://api.find.sanatanadharmas.com"
 
 
 def _resolve_mp3_url(identifier: str) -> str:
-    """Return direct MP3/OGG URL for an archive.org item via its metadata API."""
+    """Resolve the direct archive.org MP3 URL and wrap it in our proxy endpoint.
+
+    The proxy is needed because archive.org CDN nodes reject direct browser
+    requests intermittently, while server-side requests always succeed.
+    """
     try:
         meta = requests.get(
             f"https://archive.org/metadata/{identifier}",
@@ -18,10 +23,13 @@ def _resolve_mp3_url(identifier: str) -> str:
         for f in meta.get("files", []):
             if f.get("format", "").lower() in _AUDIO_FORMATS:
                 filename = quote(f['name'], safe='')
-                return f"https://archive.org/download/{identifier}/{filename}"
+                direct_url = f"https://archive.org/download/{identifier}/{filename}"
+                return f"{API_BASE}/api/audio-proxy?url={quote(direct_url, safe='')}"
     except Exception as e:
         logger.warning("Metadata lookup failed for %s: %s", identifier, e)
-    return f"https://archive.org/download/{identifier}"  # fallback
+    # Fallback: proxy the item download page
+    direct_url = f"https://archive.org/download/{identifier}"
+    return f"{API_BASE}/api/audio-proxy?url={quote(direct_url, safe='')}"
 
 
 class ArchiveService:

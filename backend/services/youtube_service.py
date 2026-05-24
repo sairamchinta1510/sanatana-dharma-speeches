@@ -28,27 +28,26 @@ class YouTubeService:
         if not terms:
             return []
         primary = terms[0] if isinstance(terms[0], str) else str(terms[0])
-        secondary = terms[1] if len(terms) > 1 and isinstance(terms[1], str) else None
+        # Use first non-primary alternate term (may include LLM-generated or raw user query)
+        alternate = next(
+            (t for t in terms[1:] if isinstance(t, str) and t.lower() != primary.lower()),
+            None,
+        )
 
         relevance_lang = LANG_CODE.get(lang, "te")
         seen: set[str] = set()
         results: list[dict] = []
 
-        # Build query list: scholar-suffixed queries for primary (and secondary if present)
-        query_topics = [primary] + ([secondary] if secondary else [])
-        queries: list[str] = []
-        for topic in query_topics:
-            for suffix in SCHOLAR_QUERIES:
-                queries.append(f"{topic} {suffix}")
-        # Baseline: direct topic search (no scholar bias) — lets YouTube handle spelling variants
-        queries.append(f"{primary} Telugu pravachanam")
-        queries.append(f"{primary} Telugu")
-
-        # Bare queries for LLM-generated terms (terms[2+]) — often contain better spellings,
-        # Telugu script variants (e.g. "భృగువల్లి"), and more specific formulations.
-        for extra in terms[2:4]:
-            if isinstance(extra, str) and extra.strip():
-                queries.append(extra)
+        # QUOTA-AWARE: YouTube Data API costs 100 units/search query; daily limit is 10,000.
+        # Use at most 3 queries per search to allow ~33 app-level searches per day.
+        # Prefer broad queries that let YouTube's ranking return the best results,
+        # rather than scholar-specific queries that consume quota without adding diversity.
+        queries: list[str] = [
+            f"{primary} Telugu pravachanam",   # primary broad search
+            f"{primary} Telugu",               # broader fallback
+        ]
+        if alternate:
+            queries.append(f"{alternate} Telugu pravachanam")
 
         for query in queries:
             try:
@@ -58,7 +57,7 @@ class YouTubeService:
                         q=query,
                         part="snippet",
                         type="video",
-                        maxResults=3,
+                        maxResults=10,
                         relevanceLanguage=relevance_lang,
                     )
                     .execute()
@@ -78,6 +77,9 @@ class YouTubeService:
                         "url": f"https://www.youtube.com/watch?v={vid}",
                         "lang": lang,
                     })
+                # Stop early if we already have plenty of results
+                if len(results) >= max_results:
+                    break
             except Exception as e:
                 logger.error(f"YouTube search failed for query '{query}': {e}")
 

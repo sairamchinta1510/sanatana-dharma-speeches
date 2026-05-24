@@ -65,8 +65,9 @@ def test_empty_api_key_raises(monkeypatch):
 def test_uses_one_query_per_scholar_plus_baseline(svc, mock_youtube_build):
     mock_youtube_build.search().list().execute.return_value = _make_yt_response([])
     svc.search(["Rama Nama"], lang="Telugu")
-    # 5 scholar queries + 2 baselines ("Telugu pravachanam" + "Telugu") = 7 total for a single term
-    assert mock_youtube_build.search().list().execute.call_count == len(SCHOLAR_QUERIES) + 2
+    # With quota-aware design: 2 queries for a single term (no alternate)
+    # "Rama Nama Telugu pravachanam" + "Rama Nama Telugu"
+    assert mock_youtube_build.search().list().execute.call_count == 2
 
 
 def test_scholar_queries_include_topic(svc, mock_youtube_build):
@@ -80,8 +81,8 @@ def test_scholar_queries_include_topic(svc, mock_youtube_build):
 
     mock_youtube_build.search().list.side_effect = capture
     svc.search(["Bhagavad Gita"], lang="Telugu")
-    # 5 scholar + 2 baselines
-    assert len(captured_queries) == len(SCHOLAR_QUERIES) + 2
+    # 2 queries for single term, both must contain topic
+    assert len(captured_queries) == 2
     for q in captured_queries:
         assert "Bhagavad Gita" in q
 
@@ -115,8 +116,9 @@ def test_search_empty_terms_returns_empty(svc, mock_youtube_build):
 def test_uses_second_term_when_provided(svc, mock_youtube_build):
     mock_youtube_build.search().list().execute.return_value = _make_yt_response([])
     svc.search(["Bhagavad Gita", "Karma Yoga Telugu"], lang="Telugu")
-    # 5 scholars × 2 terms + 2 baselines = 12
-    assert mock_youtube_build.search().list().execute.call_count == 2 * len(SCHOLAR_QUERIES) + 2
+    # With alternate term: 3 queries
+    # "Bhagavad Gita Telugu pravachanam", "Bhagavad Gita Telugu", "Karma Yoga Telugu Telugu pravachanam"
+    assert mock_youtube_build.search().list().execute.call_count == 3
 
 
 def test_baseline_query_does_not_use_scholar_suffix(svc, mock_youtube_build):
@@ -130,8 +132,8 @@ def test_baseline_query_does_not_use_scholar_suffix(svc, mock_youtube_build):
 
     mock_youtube_build.search().list.side_effect = capture
     svc.search(["Siva Tatvam"], lang="Telugu")
-    # Two baseline queries (second-to-last and last) should contain topic but no scholar suffix
+    # All queries should contain the topic and no scholar name suffixes
     scholar_names = ["Chaganti", "Garikipati", "Samavedam", "ISKCON", "Bhakthi TV"]
-    for baseline_q in captured_queries[-2:]:
-        assert "Siva Tatvam" in baseline_q
-        assert not any(name in baseline_q for name in scholar_names)
+    for q in captured_queries:
+        assert "Siva Tatvam" in q
+        assert not any(name in q for name in scholar_names)

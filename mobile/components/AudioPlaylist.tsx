@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from "react";
 import {
-  View, Text, FlatList, TouchableOpacity, StyleSheet, Platform, Linking,
+  View, Text, FlatList, StyleSheet, Platform,
 } from "react-native";
 import { AudioResult } from "../api/client";
 import { COLORS } from "../constants/theme";
@@ -27,34 +27,48 @@ function AudioRow({ item, isActive, onPlay }: {
   const [currentTime, setCurrentTime] = useState(0);
   const [audioError, setAudioError] = useState<string | null>(null);
 
+  // Create audio element imperatively — bypasses React Native Web rendering quirks
+  // that can prevent the JSX <audio> from being a real HTMLAudioElement
   useEffect(() => {
-    const el = audioRef.current;
-    if (!el) return;
-    // Only pause when row becomes inactive — play() is called directly in the click handler
-    if (!isActive) { el.pause(); }
-    return () => { el.pause(); };
+    if (Platform.OS !== "web") return;
+    const audio = new (window as any).Audio() as HTMLAudioElement;
+    audio.src = item.audio_url;
+    audio.preload = "none";
+    audioRef.current = audio;
+
+    const onTimeUpdate = () => {
+      setCurrentTime(audio.currentTime);
+      setDuration(audio.duration || 0);
+      setProgress(audio.duration ? (audio.currentTime / audio.duration) * 100 : 0);
+    };
+    const onMeta = () => setDuration(audio.duration || 0);
+    const onErr = () => setAudioError("load-failed");
+
+    audio.addEventListener("timeupdate", onTimeUpdate);
+    audio.addEventListener("loadedmetadata", onMeta);
+    audio.addEventListener("error", onErr);
+
+    return () => {
+      audio.pause();
+      audio.removeEventListener("timeupdate", onTimeUpdate);
+      audio.removeEventListener("loadedmetadata", onMeta);
+      audio.removeEventListener("error", onErr);
+      audio.src = "";
+      audioRef.current = null;
+    };
+  }, [item.audio_url]);
+
+  useEffect(() => {
+    if (!audioRef.current) return;
+    if (!isActive) audioRef.current.pause();
   }, [isActive]);
-
-  const handleTimeUpdate = (e: React.SyntheticEvent<HTMLAudioElement>) => {
-    const el = e.currentTarget;
-    setCurrentTime(el.currentTime);
-    setDuration(el.duration || 0);
-    setProgress(el.duration ? (el.currentTime / el.duration) * 100 : 0);
-  };
-
-  const handleLoadedMetadata = (e: React.SyntheticEvent<HTMLAudioElement>) => {
-    setDuration(e.currentTarget.duration || 0);
-  };
 
   const handleClick = () => {
     setAudioError(null);
-    if (audioRef.current) {
-      onPlay(item, audioRef.current);
-    }
+    if (audioRef.current) onPlay(item, audioRef.current);
   };
 
   if (Platform.OS !== "web") {
-    // Native stub — audio only works on web
     return (
       <View style={styles.row}>
         <View style={styles.iconBox}><Text style={styles.icon}>🎵</Text></View>
@@ -68,20 +82,7 @@ function AudioRow({ item, isActive, onPlay }: {
 
   return (
     <View style={[styles.row, isActive && styles.rowActive]}>
-      {/* Hidden HTML5 audio element */}
-      {/* @ts-ignore */}
-      <audio
-        ref={audioRef}
-        src={item.audio_url}
-        preload="metadata"
-        onTimeUpdate={handleTimeUpdate}
-        onLoadedMetadata={handleLoadedMetadata}
-        onError={() => setAudioError("load-failed")}
-        style={{ display: "none" }}
-      />
-
-      {/* Use native <button> so onClick is a real browser user-gesture (required for play()) */}
-      {/* @ts-ignore */}
+      {/* @ts-ignore — native <button> preserves browser user-gesture for play() */}
       <button
         style={{
           width: 36, height: 28, borderRadius: 4, border: "none", cursor: "pointer",
@@ -100,10 +101,10 @@ function AudioRow({ item, isActive, onPlay }: {
         <Text style={styles.sub}>{item.speaker} • {item.lang}</Text>
         {audioError && (
           <Text style={[styles.sub, { color: "#e74c3c" }]}>
-            ⚠ Audio failed to load.{" "}
+            ⚠ Could not load audio.{" "}
             {/* @ts-ignore */}
             <a href={item.page_url} target="_blank" rel="noreferrer" style={{ color: "#C9A84C" }}>
-              Open on Archive.org
+              Listen on Archive.org
             </a>
           </Text>
         )}

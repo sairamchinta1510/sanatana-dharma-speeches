@@ -15,8 +15,8 @@ import { ExplanationPanel } from "../components/ExplanationPanel";
 type ResultTab = "video" | "audio";
 
 export default function HomeScreen() {
-  const { videos, audio, vyakhanams, loading, budgetWarning, searchError,
-          explanation, relatedTopics, language, setLanguage, search } =
+  const { videos, audio, vyakhanams, loading, hasSearched, budgetWarning, searchError,
+          explanation, relatedTopics, language, query, setLanguage, search } =
     useApp();
   const [tab, setTab] = useState<ResultTab>("video");
   const hasResults = videos.length > 0 || audio.length > 0;
@@ -33,6 +33,22 @@ export default function HomeScreen() {
         {searchError && (
           <View style={styles.errorBanner}>
             <Text style={styles.errorText}>⚠️ Search error: {searchError}</Text>
+          </View>
+        )}
+
+        {loading && (
+          <View style={styles.loadingBanner}>
+            <Text style={styles.loadingText}>🔍 Finding content for "{query}"…</Text>
+            <Text style={styles.loadingSubText}>Searching YouTube · Archive.org · AI insights</Text>
+          </View>
+        )}
+
+        {!loading && hasSearched && !hasResults && !searchError && (
+          <View style={styles.noResultsBanner}>
+            <Text style={styles.noResultsTitle}>🕉 No results found for "{query}"</Text>
+            <Text style={styles.noResultsText}>
+              Try a different spelling or explore related topics below.
+            </Text>
           </View>
         )}
 
@@ -114,6 +130,24 @@ const styles = StyleSheet.create({
     borderRadius: 8, padding: 8,
   },
   errorText: { color: "#ff6666", fontSize: 11, textAlign: "center" },
+  loadingBanner: {
+    marginHorizontal: 16, marginBottom: 12,
+    backgroundColor: "rgba(226, 168, 75, 0.06)",
+    borderWidth: 1, borderColor: "rgba(226, 168, 75, 0.25)",
+    borderRadius: 10, paddingVertical: 14, paddingHorizontal: 16,
+    alignItems: "center",
+  },
+  loadingText: { color: "#e2a84b", fontSize: 13, fontWeight: "600", textAlign: "center" },
+  loadingSubText: { color: "#6e7681", fontSize: 11, marginTop: 4, textAlign: "center" },
+  noResultsBanner: {
+    marginHorizontal: 16, marginBottom: 12,
+    backgroundColor: "rgba(226, 168, 75, 0.04)",
+    borderWidth: 1, borderColor: "rgba(226, 168, 75, 0.15)",
+    borderRadius: 10, paddingVertical: 14, paddingHorizontal: 16,
+    alignItems: "center",
+  },
+  noResultsTitle: { color: "#e2a84b", fontSize: 13, fontWeight: "600", textAlign: "center" },
+  noResultsText: { color: "#8b949e", fontSize: 12, marginTop: 4, textAlign: "center" },
   warningBanner: {
     marginHorizontal: 16, marginBottom: 8,
     backgroundColor: "#7d4e0022",

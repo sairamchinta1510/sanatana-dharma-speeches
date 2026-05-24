@@ -40,8 +40,15 @@ class YouTubeService:
         for topic in query_topics:
             for suffix in SCHOLAR_QUERIES:
                 queries.append(f"{topic} {suffix}")
-        # Baseline: primary topic with generic Telugu suffix (no scholar bias)
+        # Baseline: direct topic search (no scholar bias) — lets YouTube handle spelling variants
         queries.append(f"{primary} Telugu pravachanam")
+        queries.append(f"{primary} Telugu")
+
+        # Bare queries for LLM-generated terms (terms[2+]) — often contain better spellings,
+        # Telugu script variants (e.g. "భృగువల్లి"), and more specific formulations.
+        for extra in terms[2:4]:
+            if isinstance(extra, str) and extra.strip():
+                queries.append(extra)
 
         for query in queries:
             try:

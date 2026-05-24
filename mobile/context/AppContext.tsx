@@ -15,6 +15,7 @@ interface AppState {
   explanation: string | null;
   relatedTopics: string[];
   loading: boolean;
+  hasSearched: boolean;
   budgetWarning: boolean;
   searchError: string | null;
   currentPlayer: PlayerItem | null;
@@ -42,6 +43,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [explanation, setExplanation] = useState<string | null>(null);
   const [relatedTopics, setRelatedTopics] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
   const [budgetWarning, setBudgetWarning] = useState(false);
   const [currentPlayer, setCurrentPlayer] = useState<PlayerItem | null>(null);
   const [currentAudio, setCurrentAudio] = useState<AudioResult | null>(null);
@@ -52,9 +54,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const search = useCallback(async (q: string) => {
     if (!q.trim()) return;
+    setQuery(q.trim());
     setCurrentAudio(null);
     setPlayingAudioId(null);
     setLoading(true);
+    setHasSearched(true);
     setSearchError(null);
     try {
       const [videoRes, audioRes, vyakhanamRes] = await Promise.all([
@@ -81,7 +85,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     <AppContext.Provider value={{
       query, language, videos, audio, vyakhanams,
       explanation, relatedTopics,
-      loading, budgetWarning, searchError, currentPlayer,
+      loading, hasSearched, budgetWarning, searchError, currentPlayer,
       currentAudio, audioQueue: audio, audioListRef,
       playingAudioId, activeAudioElRef,
       setQuery, setLanguage, search, setCurrentPlayer, setCurrentAudio, setPlayingAudioId,

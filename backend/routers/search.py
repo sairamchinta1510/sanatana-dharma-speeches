@@ -40,7 +40,17 @@ def search(
 
     parsed = llm_svc.parse_query(q, lang=lang)
     if parsed:
-        terms = [q] + llm_svc.generate_search_terms(parsed)
+        # Use LLM-normalized canonical topic name as primary so YouTube/archive
+        # gets the correct spelling (e.g. "Bhriguvalli" for user query "Brughuvalli").
+        # Include raw query q as well so alternate spellings are also searched.
+        canonical = parsed.topic if isinstance(parsed.topic, str) and parsed.topic else q
+        raw_terms = ([canonical] if canonical.lower() != q.lower() else []) + [q] + llm_svc.generate_search_terms(parsed)
+        seen_t: set[str] = set()
+        terms: list[str] = []
+        for t in raw_terms:
+            if isinstance(t, str) and t and t not in seen_t:
+                seen_t.add(t)
+                terms.append(t)
     else:
         terms = [q]
 

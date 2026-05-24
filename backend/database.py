@@ -61,4 +61,18 @@ def init_db() -> None:
                 tokens_out INTEGER NOT NULL,
                 cost_usd REAL NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS local_content (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                pdf_key     TEXT    NOT NULL,
+                category    TEXT    NOT NULL,
+                title       TEXT    NOT NULL,
+                page_number INTEGER NOT NULL,
+                content     TEXT    NOT NULL
+            );
+            CREATE VIRTUAL TABLE IF NOT EXISTS local_content_fts USING fts5(
+                content,
+                content='local_content',
+                content_rowid='id',
+                tokenize='unicode61'
+            );
         """)

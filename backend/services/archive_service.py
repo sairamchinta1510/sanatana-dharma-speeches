@@ -1,5 +1,6 @@
 import logging
 import requests
+from urllib.parse import quote
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 logger = logging.getLogger(__name__)
@@ -16,7 +17,8 @@ def _resolve_mp3_url(identifier: str) -> str:
         ).json()
         for f in meta.get("files", []):
             if f.get("format", "").lower() in _AUDIO_FORMATS:
-                return f"https://archive.org/download/{identifier}/{f['name']}"
+                filename = quote(f['name'], safe='')
+                return f"https://archive.org/download/{identifier}/{filename}"
     except Exception as e:
         logger.warning("Metadata lookup failed for %s: %s", identifier, e)
     return f"https://archive.org/download/{identifier}"  # fallback

@@ -6,28 +6,15 @@ logger = logging.getLogger(__name__)
 
 LANG_CODE = {"Telugu": "te", "English": "en", "Sanskrit": "sa", "Hindi": "hi"}
 
-AUTHENTIC_CHANNELS = {
-    "chaganti",
-    "garikapati",
-    "garikipati",
-    "samavedam",
-    "jeeyar",
-    "chinnajeeyar",
-    "bhakthi tv",
-    "telugupuranam",
-    "suman tv",
-    "sumantvvijayawada",
-    "iskcon",
-    "tridandi",
-    "pravachanam",
-    "dharmasandehalu",
-    "brahmasri",
-}
+SCHOLAR_QUERIES = [
+    "Chaganti Koteswara Rao Telugu",
+    "Garikipati Narasimha Rao Telugu",
+    "Samavedam Shanmukha Sharma Telugu",
+    "ISKCON Telugu pravachanam",
+    "Bhakthi TV Telugu pravachanam",
+]
 
-
-def _is_authentic(channel_title: str) -> bool:
-    lower = channel_title.lower()
-    return any(keyword in lower for keyword in AUTHENTIC_CHANNELS)
+_STOP_WORDS = {"the", "a", "an", "of", "in", "and", "or", "to", "for", "on", "by", "with", "at", "from", "is", "are", "was", "be"}
 
 
 class YouTubeService:
@@ -38,18 +25,23 @@ class YouTubeService:
         self._yt = build("youtube", "v3", developerKey=api_key)
 
     def search(self, terms: list[str], lang: str, max_results: int = 10) -> list[dict]:
-        seen = set()
-        results = []
+        if not terms:
+            return []
+        topic = terms[0]
         relevance_lang = LANG_CODE.get(lang, "te")
-        for term in terms:
+        seen: set[str] = set()
+        results: list[dict] = []
+
+        for suffix in SCHOLAR_QUERIES:
+            query = f"{topic} {suffix}"
             try:
                 resp = (
                     self._yt.search()
                     .list(
-                        q=term,
+                        q=query,
                         part="snippet",
                         type="video",
-                        maxResults=max_results,
+                        maxResults=3,
                         relevanceLanguage=relevance_lang,
                     )
                     .execute()
@@ -70,7 +62,24 @@ class YouTubeService:
                         "lang": lang,
                     })
             except Exception as e:
-                logger.error(f"YouTube search failed for term '{term}': {e}")
+                logger.error(f"YouTube search failed for query '{query}': {e}")
 
-        authentic = [r for r in results if _is_authentic(r["speaker"])]
-        return authentic if authentic else results
+        return self._filter_by_topic(results, topic)
+
+    def _extract_keywords(self, topic: str) -> list[str]:
+        words = topic.lower().split()
+        return [w.strip(".,!?()") for w in words
+                if w.strip(".,!?()") not in _STOP_WORDS and len(w.strip(".,!?()")) > 1]
+
+    def _filter_by_topic(self, results: list[dict], topic: str) -> list[dict]:
+        keywords = self._extract_keywords(topic)
+        if not keywords:
+            return results
+        threshold = max(1, len(keywords) // 3)
+
+        def passes(r: dict) -> bool:
+            text = (r.get("title", "") + " " + r.get("description", "")).lower()
+            return sum(1 for kw in keywords if kw in text) >= threshold
+
+        filtered = [r for r in results if passes(r)]
+        return filtered if filtered else results

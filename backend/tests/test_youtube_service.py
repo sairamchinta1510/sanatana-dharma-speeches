@@ -1,10 +1,10 @@
 import pytest
 import os
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, call
 
 os.environ.setdefault("YOUTUBE_API_KEY", "test-key")
 
-from services.youtube_service import YouTubeService
+from services.youtube_service import YouTubeService, SCHOLAR_QUERIES
 
 
 @pytest.fixture
@@ -23,33 +23,35 @@ def _make_yt_response(items):
     return {"items": items}
 
 
+def _make_item(video_id, title, channel, description=""):
+    return {
+        "id": {"videoId": video_id},
+        "snippet": {
+            "title": title,
+            "channelTitle": channel,
+            "description": description,
+            "thumbnails": {"medium": {"url": f"http://img/{video_id}.jpg"}},
+        },
+    }
+
+
 def test_search_returns_normalized_results(svc, mock_youtube_build):
     mock_youtube_build.search().list().execute.return_value = _make_yt_response([
-        {
-            "id": {"videoId": "abc123"},
-            "snippet": {
-                "title": "Siva Tatvam Telugu",
-                "channelTitle": "Chaganti Official",
-                "description": "Full discourse",
-                "thumbnails": {"medium": {"url": "http://img.jpg"}},
-            }
-        }
+        _make_item("abc123", "Siva Tatvam Telugu", "Chaganti Official"),
     ])
-    results = svc.search(["Siva Tatvam Telugu"], lang="Telugu", max_results=5)
+    results = svc.search(["Siva Tatvam"], lang="Telugu")
     assert len(results) == 1
     assert results[0]["video_id"] == "abc123"
     assert results[0]["speaker"] == "Chaganti Official"
     assert results[0]["url"] == "https://www.youtube.com/watch?v=abc123"
 
 
-def test_deduplicates_across_terms(svc, mock_youtube_build):
-    item = {
-        "id": {"videoId": "dup123"},
-        "snippet": {"title": "Test", "channelTitle": "X",
-                    "description": "", "thumbnails": {"medium": {"url": ""}}}
-    }
-    mock_youtube_build.search().list().execute.return_value = _make_yt_response([item])
-    results = svc.search(["term1", "term2"], lang="Telugu", max_results=10)
+def test_deduplicates_across_scholar_queries(svc, mock_youtube_build):
+    # Same video returned by every scholar query — should deduplicate to 1
+    mock_youtube_build.search().list().execute.return_value = _make_yt_response([
+        _make_item("dup123", "Bhagavad Gita disc", "SomeChannel"),
+    ])
+    results = svc.search(["Bhagavad Gita"], lang="Telugu")
     ids = [r["video_id"] for r in results]
     assert ids.count("dup123") == 1
 
@@ -60,45 +62,42 @@ def test_empty_api_key_raises(monkeypatch):
         YouTubeService()
 
 
-def test_filters_to_authentic_channels(svc, mock_youtube_build):
-    mock_youtube_build.search().list().execute.return_value = _make_yt_response([
-        {
-            "id": {"videoId": "vid1"},
-            "snippet": {
-                "title": "Siva Tatvam",
-                "channelTitle": "Chaganti Official",
-                "description": "",
-                "thumbnails": {"medium": {"url": ""}},
-            },
-        },
-        {
-            "id": {"videoId": "vid2"},
-            "snippet": {
-                "title": "Random video",
-                "channelTitle": "SomeRandomChannel",
-                "description": "",
-                "thumbnails": {"medium": {"url": ""}},
-            },
-        },
-    ])
-    results = svc.search(["Siva Tatvam Telugu"], lang="Telugu", max_results=5)
-    speakers = [r["speaker"] for r in results]
-    assert "Chaganti Official" in speakers
-    assert "SomeRandomChannel" not in speakers
+def test_uses_one_query_per_scholar(svc, mock_youtube_build):
+    mock_youtube_build.search().list().execute.return_value = _make_yt_response([])
+    svc.search(["Rama Nama"], lang="Telugu")
+    assert mock_youtube_build.search().list().execute.call_count == len(SCHOLAR_QUERIES)
 
 
-def test_falls_back_to_all_if_no_authentic_match(svc, mock_youtube_build):
+def test_scholar_queries_include_topic(svc, mock_youtube_build):
+    captured_queries = []
+
+    def capture(*args, **kwargs):
+        captured_queries.append(kwargs.get("q", ""))
+        m = MagicMock()
+        m.execute.return_value = _make_yt_response([])
+        return m
+
+    mock_youtube_build.search().list.side_effect = capture
+    svc.search(["Bhagavad Gita"], lang="Telugu")
+    for q in captured_queries:
+        assert "Bhagavad Gita" in q
+
+
+def test_title_filter_removes_irrelevant_results(svc, mock_youtube_build):
     mock_youtube_build.search().list().execute.return_value = _make_yt_response([
-        {
-            "id": {"videoId": "vid3"},
-            "snippet": {
-                "title": "Niche topic",
-                "channelTitle": "ObscureChannel",
-                "description": "",
-                "thumbnails": {"medium": {"url": ""}},
-            },
-        },
+        _make_item("v1", "Bhagavad Gita Chapter 2", "Chaganti"),
+        _make_item("v2", "Random cooking video", "FoodChannel"),
     ])
-    results = svc.search(["very niche query"], lang="Telugu", max_results=5)
+    results = svc.search(["Bhagavad Gita"], lang="Telugu")
+    titles = [r["title"] for r in results]
+    assert "Bhagavad Gita Chapter 2" in titles
+    assert "Random cooking video" not in titles
+
+
+def test_title_filter_falls_back_when_all_filtered(svc, mock_youtube_build):
+    # If ALL results fail the keyword filter, return all (rather than empty)
+    mock_youtube_build.search().list().execute.return_value = _make_yt_response([
+        _make_item("v1", "Niche discourse", "ObscureChannel"),
+    ])
+    results = svc.search(["xyzzy unique nonce"], lang="Telugu")
     assert len(results) == 1
-    assert results[0]["speaker"] == "ObscureChannel"

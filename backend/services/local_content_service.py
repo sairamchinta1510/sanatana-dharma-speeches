@@ -46,6 +46,7 @@ class LocalContentService:
                 "SELECT id, pdf_key, category, title, page_number, content "
                 "FROM local_content "
                 "WHERE title LIKE ? OR title LIKE ? "
+                "ORDER BY page_number ASC "
                 "LIMIT 3",
                 (f"%{topic}%", f"%{original_query}%"),
             ).fetchall()
@@ -67,7 +68,7 @@ class LocalContentService:
                             "FROM local_content_fts "
                             "JOIN local_content lc ON local_content_fts.rowid = lc.id "
                             "WHERE local_content_fts MATCH ? "
-                            "ORDER BY rank "
+                            "ORDER BY rank ASC "
                             "LIMIT ?",
                             (fts_query, remaining),
                         ).fetchall()
@@ -91,6 +92,7 @@ class LocalContentService:
                 word = word.strip('.,;:?!()"\'।')
                 if len(word) >= 2 and word not in seen:
                     seen.add(word)
+                    word = word.replace('"', '""')  # FTS5 quote escaping
                     terms.append(f'"{word}"')
         return " OR ".join(terms[:10])
 

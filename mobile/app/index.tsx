@@ -11,15 +11,17 @@ import { VyakhanamsPanel } from "../components/VyakhanamsPanel";
 import { StickyAudioBar } from "../components/StickyAudioBar";
 import { COLORS } from "../constants/theme";
 import { ExplanationPanel } from "../components/ExplanationPanel";
+import { LocalResultsSection } from "../components/LocalResultsSection";
 
 type ResultTab = "video" | "audio";
 
 export default function HomeScreen() {
-  const { videos, audio, vyakhanams, loading, hasSearched, budgetWarning, searchError,
-          explanation, relatedTopics, language, query, setLanguage, search } =
+  const { videos, audio, vyakhanams, localResults, loading, hasSearched, budgetWarning,
+          searchError, explanation, relatedTopics, language, query, setLanguage, search } =
     useApp();
   const [tab, setTab] = useState<ResultTab>("video");
-  const hasResults = videos.length > 0 || audio.length > 0;
+  const hasMediaResults = videos.length > 0 || audio.length > 0;
+  const hasSearchResults = hasMediaResults || localResults.length > 0;
 
   return (
     <View style={styles.wrapper}>
@@ -43,7 +45,7 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {!loading && hasSearched && !hasResults && !searchError && (
+        {!loading && hasSearched && !hasSearchResults && !searchError && (
           <View style={styles.noResultsBanner}>
             <Text style={styles.noResultsTitle}>🕉 No results found for "{query}"</Text>
             <Text style={styles.noResultsText}>
@@ -66,7 +68,9 @@ export default function HomeScreen() {
           onTopicPress={search}
         />
 
-        {hasResults && (
+        <LocalResultsSection results={localResults} />
+
+        {hasMediaResults && (
           <>
             <View style={styles.sectionBox}>
               <View style={styles.sectionHeader}>

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useRef } from "react";
-import { api, VideoResult, AudioResult, VyakhanamResult } from "../api/client";
+import { api, VideoResult, AudioResult, VyakhanamResult, LocalResult } from "../api/client";
 
 export type Language = "Telugu" | "English" | "Sanskrit" | "Hindi";
 export type PlayerItem =
@@ -14,6 +14,7 @@ interface AppState {
   vyakhanams: VyakhanamResult[];
   explanation: string | null;
   relatedTopics: string[];
+  localResults: LocalResult[];
   loading: boolean;
   hasSearched: boolean;
   budgetWarning: boolean;
@@ -42,6 +43,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [vyakhanams, setVyakhanams] = useState<VyakhanamResult[]>([]);
   const [explanation, setExplanation] = useState<string | null>(null);
   const [relatedTopics, setRelatedTopics] = useState<string[]>([]);
+  const [localResults, setLocalResults] = useState<LocalResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [budgetWarning, setBudgetWarning] = useState(false);
@@ -71,6 +73,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setVyakhanams(vyakhanamRes.results);
       setExplanation(videoRes.explanation ?? null);
       setRelatedTopics(videoRes.related_topics ?? []);
+      setLocalResults(videoRes.local_results ?? []);
       setBudgetWarning(videoRes.budget_warning || audioRes.budget_warning);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -84,7 +87,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   return (
     <AppContext.Provider value={{
       query, language, videos, audio, vyakhanams,
-      explanation, relatedTopics,
+      explanation, relatedTopics, localResults,
       loading, hasSearched, budgetWarning, searchError, currentPlayer,
       currentAudio, audioQueue: audio, audioListRef,
       playingAudioId, activeAudioElRef,

@@ -33,7 +33,11 @@ def search(
     # Always run local search fresh — presigned URLs expire after 1h
     parsed = llm_svc.parse_query(q, lang=lang)
     topic = parsed.topic if parsed and isinstance(parsed.topic, str) and parsed.topic else q
-    local_results = local_content_svc.search(topic, q)
+    try:
+        local_results = local_content_svc.search(topic, q)
+    except Exception as exc:
+        logger.warning("Local content search failed: %s", exc)
+        local_results = []
 
     cached = cache_svc.get(type, q, lang)
     if cached:  # only serve non-empty cached results

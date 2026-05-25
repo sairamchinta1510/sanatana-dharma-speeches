@@ -51,7 +51,9 @@ function ResultCard({ item }: { item: LocalResult }) {
       {item.pdf_url ? (
         <TouchableOpacity
           style={styles.pdfButton}
-          onPress={() => Linking.openURL(item.pdf_url)}
+          onPress={() => Linking.openURL(item.pdf_url).catch(() => {})}
+          accessibilityRole="link"
+          accessibilityLabel={`Open ${item.title} PDF`}
         >
           <Text style={styles.pdfButtonText}>📄 PDF తెరవండి</Text>
         </TouchableOpacity>

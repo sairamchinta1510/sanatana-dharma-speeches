@@ -62,6 +62,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
     setHasSearched(true);
     setSearchError(null);
+    setLocalResults([]);
     try {
       const [videoRes, audioRes, vyakhanamRes] = await Promise.all([
         api.searchVideos(q, language),

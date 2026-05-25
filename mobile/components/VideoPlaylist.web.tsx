@@ -72,7 +72,6 @@ export function VideoPlaylist({ videos }: Props) {
         return (
           <View style={[styles.row, active && styles.rowActive]}>
             {active && (
-              // @ts-expect-error — iframe not in RN types but works on web
               <iframe
                 title="YouTube video player"
                 width="100%"

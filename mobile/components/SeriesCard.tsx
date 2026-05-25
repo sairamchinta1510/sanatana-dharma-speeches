@@ -29,7 +29,6 @@ export function SeriesCard({ series }: Props) {
 
       {/* Inline player — shown when an episode is selected */}
       {activeId && (
-        // @ts-expect-error — iframe not in RN types but works on web
         <iframe
           key={activeId}
           title="YouTube video player"

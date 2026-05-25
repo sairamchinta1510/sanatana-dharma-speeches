@@ -105,11 +105,13 @@ def upload_pdf(s3: "boto3.client", pdf_path: Path, s3_key: str) -> bool:
         logger.info("  Already in S3: %s", s3_key)
         return False
     except ClientError as exc:
-        if exc.response["Error"]["Code"] == "404":
+        code = exc.response["Error"]["Code"]
+        if code == "404":
             s3.upload_file(str(pdf_path), BUCKET, s3_key)
             logger.info("  Uploaded to S3: %s", s3_key)
             return True
-        raise
+        logger.warning("  S3 error for %s (code %s): %s", s3_key, code, exc)
+        return False
 
 
 def already_indexed(conn, pdf_key: str) -> bool:
@@ -181,6 +183,12 @@ def main() -> None:
         for zip_path in zips:
             logger.info("Processing: %s", zip_path.name)
             with zipfile.ZipFile(zip_path) as zf:
+                # Validate members to prevent path traversal
+                extract_target = EXTRACT_DIR.resolve()
+                for member in zf.namelist():
+                    member_path = (EXTRACT_DIR / member).resolve()
+                    if not str(member_path).startswith(str(extract_target)):
+                        raise ValueError(f"Refusing to extract member outside target dir: {member}")
                 zf.extractall(EXTRACT_DIR)
 
             for folder_name, category in CATEGORY_MAP.items():

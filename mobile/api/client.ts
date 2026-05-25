@@ -48,8 +48,18 @@ export interface VyakhanamResult {
   source_url: string;
 }
 
+export interface LocalResult {
+  title: string;
+  category: string;
+  page_number: number;
+  excerpt: string;
+  pdf_url: string;
+  pdf_key: string;
+}
+
 export interface SearchResponse<T> {
   results: T[];
+  local_results: LocalResult[];
   explanation: string | null;
   related_topics: string[];
   budget_warning: boolean;
